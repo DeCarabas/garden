@@ -1,0 +1,17 @@
+{
+  "name": "garden",
+  "version": "1.0.0",
+  "description": "A small javascript garden",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "john@d0ty.me",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "1.10.2"
+  },
+  "prettier": {
+    "trailingComma": "es5"
+  }
+}
