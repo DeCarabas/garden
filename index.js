@@ -21,6 +21,28 @@ function move(x, y, heading, length) {
   return [x + dx, y + dy];
 }
 
+class MeasureContext {
+  beginPath() {}
+  stroke() {}
+  moveTo(x, y) {
+    if (this.min_x === undefined || x < this.min_x) {
+      this.min_x = x;
+    }
+    if (this.max_x === undefined || x > this.max_x) {
+      this.max_x = x;
+    }
+    if (this.min_y === undefined || y < this.min_y) {
+      this.min_y = y;
+    }
+    if (this.max_y === undefined || y > this.max_y) {
+      this.max_y = y;
+    }
+  }
+  lineTo(x, y) {
+    this.moveTo(x, y);
+  }
+}
+
 function render(state, context, config) {
   let { x, y, heading, step_length, angle_delta } = config;
   const state_stack = [];
@@ -56,30 +78,49 @@ function render(state, context, config) {
   context.stroke();
 }
 
-// Rewrite rules.
+function toRadians(degrees) {
+  return degrees * (Math.PI / 180.0);
+}
+
+// Definition here:
 const initial = "X";
+const angle = toRadians(22.5);
 const rules = {
   X: ["F-[[X]+X]+F[+FX]-X"],
   F: ["FF"],
 };
 
+// HTML mechanics
 const garden = document.getElementById("garden");
 const gardenContext = garden.getContext("2d");
 
 const render_config = {
-  x: garden.width * 0.25,
-  y: garden.height * 0.75,
+  x: 0,
+  y: 0,
   heading: Math.PI * 1.5,
-  step_length: garden.width / 2,
-  step_factor: 2.5,
-  angle_delta: 22.5 * (Math.PI / 180.0),
+  step_length: 10,
+  step_factor: 1,
+  angle_delta: angle,
 };
 
 let state = initial;
 let step_length = garden.width / 2;
 function draw() {
   gardenContext.clearRect(0, 0, garden.width, garden.height);
+  const measure_context = new MeasureContext();
+
+  render(state, measure_context, render_config);
+  const render_width = measure_context.max_x - measure_context.min_x;
+  const render_height = measure_context.max_y - measure_context.min_y;
+
+  gardenContext.save();
+  gardenContext.scale(
+    garden.width / render_width,
+    garden.height / render_height
+  );
+  gardenContext.translate(-measure_context.min_x, -measure_context.min_y);
   render(state, gardenContext, render_config);
+  gardenContext.restore();
 }
 
 function step() {
