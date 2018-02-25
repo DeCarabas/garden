@@ -22,9 +22,7 @@ function move(x, y, heading, length) {
 }
 
 function render(state, context, config) {
-  const ANGLE_DELTA = Math.PI * 0.5;
-
-  let { x, y, heading, step_length } = config;
+  let { x, y, heading, step_length, angle_delta } = config;
 
   context.beginPath();
   context.moveTo(x, y);
@@ -43,9 +41,9 @@ function render(state, context, config) {
       x = new_x;
       y = new_y;
     } else if (current == "+") {
-      heading += ANGLE_DELTA;
+      heading += angle_delta;
     } else if (current == "-") {
-      heading -= ANGLE_DELTA;
+      heading -= angle_delta;
     }
   }
 
@@ -53,9 +51,10 @@ function render(state, context, config) {
 }
 
 // Rewrite rules.
-const initial = "F-F-F-F";
+const initial = "F+F+F+F";
 const rules = {
-  F: ["F-F+F+FF-F-F+F"],
+  F: ["F+f-FF+F+FF+Ff+FF-f+FF-F-FF-Ff-FFF"],
+  f: ["ffffff"],
 };
 
 const garden = document.getElementById("garden");
@@ -64,8 +63,9 @@ const gardenContext = garden.getContext("2d");
 const render_config = {
   x: garden.width * 0.25,
   y: garden.height * 0.75,
-  heading: 0,
+  heading: Math.PI * 1.5,
   step_length: garden.width / 2,
+  angle_delta: Math.PI * 0.5,
 };
 
 let state = initial;
@@ -77,7 +77,7 @@ function draw() {
 
 function step() {
   state = rewrite(state, rules);
-  render_config.step_length /= 4;
+  render_config.step_length /= 6;
   draw();
 }
 
