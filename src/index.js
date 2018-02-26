@@ -138,7 +138,8 @@ const fsSource = `
     highp float directional = max(dot(vNormal.xyz, directionalVector), 0.0);
     highp vec3 vLighting = ambientLight + (directionalLightColor * directional);
 
-    gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
+    //gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
+    gl_FragColor = vec4(vLighting, 1.0);
   }
 `;
 
