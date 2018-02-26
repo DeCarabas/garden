@@ -17,5 +17,8 @@
   },
   "prettier": {
     "trailingComma": "es5"
+  },
+  "dependencies": {
+    "gl-matrix": "^2.4.0"
   }
 }

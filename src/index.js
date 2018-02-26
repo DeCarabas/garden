@@ -1,6 +1,7 @@
 // @flow
 // @format
-//
+const { mat4 } = require("gl-matrix");
+
 // The core functionality for l-systems is like this.
 function rewrite(state, rules) {
   let result = "";
@@ -109,17 +110,23 @@ const rules = {
 // HTML mechanics, WebGL bullshit.
 const vsSource = `
 attribute vec4 aVertexPosition;
+attribute vec4 aVertexColor;
 
 uniform mat4 uModelViewMatrix;
 uniform mat4 uProjectionMatrix;
 
+varying lowp vec4 vColor;
+
 void main() {
   gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+  vColor = aVertexColor;
 }
 `;
 const fsSource = `
+  varying lowp vec4 vColor;
+
   void main() {
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    gl_FragColor = vColor;
   }
 `;
 
@@ -163,14 +170,24 @@ function loadShader(gl, type, source) {
 }
 
 function initBuffers(gl) {
+  const positions = [1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0];
   const positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
-  const positions = [1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0];
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+  const colors = [
+    ...[1.0, 1.0, 1.0, 1.0],
+    ...[1.0, 0.0, 0.0, 1.0],
+    ...[0.0, 1.0, 0.0, 1.0],
+    ...[0.0, 0.0, 1.0, 1.0],
+  ];
+  const colorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 
   return {
     position: positionBuffer,
+    color: colorBuffer,
   };
 }
 
@@ -185,6 +202,7 @@ function setup(gl) {
     program: shaderProgram,
     attribLocations: {
       vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+      vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
     },
     uniformLocations: {
       projectionMatrix: gl.getUniformLocation(
@@ -218,7 +236,7 @@ const render_config = {
 };
 
 let state = initial;
-function draw(gl) {
+function draw(gl, squareRotation) {
   // Step 1: Measure the boundaries of the plant.
   const measure_context = new MeasureContext();
   render(state, measure_context, render_config);
@@ -226,8 +244,73 @@ function draw(gl) {
   const render_height = measure_context.max_y - measure_context.min_y;
 
   // Step 2: Draw the plant.
-
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  const fieldOfView = toRadians(45);
+  const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+  const zNear = 0.1;
+  const zFar = 100.0;
+
+  const projectionMatrix = mat4.create();
+  mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
+
+  const modelViewMatrix = mat4.create();
+  mat4.translate(modelViewMatrix, modelViewMatrix, [-0.0, 0.0, -6.0]);
+  mat4.rotate(modelViewMatrix, modelViewMatrix, squareRotation, [0, 0, 1]);
+
+  {
+    const numComponents = 2;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    gl.vertexAttribPointer(
+      programInfo.attribLocations.vertexPosition,
+      numComponents,
+      type,
+      normalize,
+      stride,
+      offset
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+  }
+
+  {
+    const numComponents = 4;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+    gl.vertexAttribPointer(
+      programInfo.attribLocations.vertexColor,
+      numComponents,
+      type,
+      normalize,
+      stride,
+      offset
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+  }
+
+  gl.useProgram(programInfo.program);
+  gl.uniformMatrix4fv(
+    programInfo.uniformLocations.projectionMatrix,
+    false,
+    projectionMatrix
+  );
+  gl.uniformMatrix4fv(
+    programInfo.uniformLocations.modelViewMatrix,
+    false,
+    modelViewMatrix
+  );
+
+  {
+    const offset = 0;
+    const vertexCount = 4;
+    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+  }
 
   // gardenContext.clearRect(0, 0, garden.width, garden.height);
   // gardenContext.save();
@@ -240,12 +323,24 @@ function draw(gl) {
   // gardenContext.restore();
 }
 
+let then = 0;
+let squareRotation = 0;
+function onFrame(now) {
+  now *= 0.001;
+  const deltaTime = now - then;
+  then = now;
+
+  squareRotation += deltaTime;
+
+  draw(gardenContext, squareRotation);
+  requestAnimationFrame(onFrame);
+}
+requestAnimationFrame(onFrame);
+
 function step() {
   state = rewrite(state, rules);
   render_config.step_length /= render_config.step_factor;
-  draw(gardenContext);
 }
-
 const stepButton = document.getElementById("step");
 if (!stepButton) {
   throw Error("Cannot find step button.");
