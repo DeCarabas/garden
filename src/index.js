@@ -110,23 +110,35 @@ const rules = {
 // HTML mechanics, WebGL bullshit.
 const vsSource = `
 attribute vec4 aVertexPosition;
+attribute vec3 aVertexNormal;
 attribute vec4 aVertexColor;
 
+uniform mat4 uNormalMatrix;
 uniform mat4 uModelViewMatrix;
 uniform mat4 uProjectionMatrix;
 
 varying lowp vec4 vColor;
+varying highp vec4 vNormal;
 
 void main() {
   gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
   vColor = aVertexColor;
+  vNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
 }
 `;
 const fsSource = `
   varying lowp vec4 vColor;
+  varying highp vec4 vNormal;
 
   void main() {
-    gl_FragColor = vColor;
+    highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+    highp vec3 directionalLightColor = vec3(1, 1, 1);
+    highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+
+    highp float directional = max(dot(vNormal.xyz, directionalVector), 0.0);
+    highp vec3 vLighting = ambientLight + (directionalLightColor * directional);
+
+    gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
   }
 `;
 
@@ -170,24 +182,134 @@ function loadShader(gl, type, source) {
 }
 
 function initBuffers(gl) {
-  const positions = [1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, -1.0];
+  const positions = [
+    // Front face
+    ...[-1.0, -1.0, 1.0],
+    ...[1.0, -1.0, 1.0],
+    ...[1.0, 1.0, 1.0],
+    ...[-1.0, 1.0, 1.0],
+
+    // Back face
+    ...[-1.0, -1.0, -1.0],
+    ...[-1.0, 1.0, -1.0],
+    ...[1.0, 1.0, -1.0],
+    ...[1.0, -1.0, -1.0],
+
+    // Top face
+    ...[-1.0, 1.0, -1.0],
+    ...[-1.0, 1.0, 1.0],
+    ...[1.0, 1.0, 1.0],
+    ...[1.0, 1.0, -1.0],
+
+    // Bottom face
+    ...[-1.0, -1.0, -1.0],
+    ...[1.0, -1.0, -1.0],
+    ...[1.0, -1.0, 1.0],
+    ...[-1.0, -1.0, 1.0],
+
+    // Right face
+    ...[1.0, -1.0, -1.0],
+    ...[1.0, 1.0, -1.0],
+    ...[1.0, 1.0, 1.0],
+    ...[1.0, -1.0, 1.0],
+
+    // Left face
+    ...[-1.0, -1.0, -1.0],
+    ...[-1.0, -1.0, 1.0],
+    ...[-1.0, 1.0, 1.0],
+    ...[-1.0, 1.0, -1.0],
+  ];
   const positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-  const colors = [
-    ...[1.0, 1.0, 1.0, 1.0],
-    ...[1.0, 0.0, 0.0, 1.0],
-    ...[0.0, 1.0, 0.0, 1.0],
-    ...[0.0, 0.0, 1.0, 1.0],
+  const faceColors = [
+    [1.0, 1.0, 1.0, 1.0], // Front face: white
+    [1.0, 0.0, 0.0, 1.0], // Back face: red
+    [0.0, 1.0, 0.0, 1.0], // Top face: green
+    [0.0, 0.0, 1.0, 1.0], // Bottom face: blue
+    [1.0, 1.0, 0.0, 1.0], // Right face: yellow
+    [1.0, 0.0, 1.0, 1.0], // Left face: purple
   ];
+  let colors = [];
+  for (let j = 0; j < faceColors.length; j++) {
+    const c = faceColors[j];
+    colors = colors.concat(c, c, c, c);
+  }
+
   const colorBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 
+  const vertexNormals = [
+    // Front
+    ...[0.0, 0.0, 1.0],
+    ...[0.0, 0.0, 1.0],
+    ...[0.0, 0.0, 1.0],
+    ...[0.0, 0.0, 1.0],
+
+    // Back
+    ...[0.0, 0.0, -1.0],
+    ...[0.0, 0.0, -1.0],
+    ...[0.0, 0.0, -1.0],
+    ...[0.0, 0.0, -1.0],
+
+    // Top
+    ...[0.0, 1.0, 0.0],
+    ...[0.0, 1.0, 0.0],
+    ...[0.0, 1.0, 0.0],
+    ...[0.0, 1.0, 0.0],
+
+    // Bottom
+    ...[0.0, -1.0, 0.0],
+    ...[0.0, -1.0, 0.0],
+    ...[0.0, -1.0, 0.0],
+    ...[0.0, -1.0, 0.0],
+
+    // Right
+    ...[1.0, 0.0, 0.0],
+    ...[1.0, 0.0, 0.0],
+    ...[1.0, 0.0, 0.0],
+    ...[1.0, 0.0, 0.0],
+
+    // Left
+    ...[-1.0, 0.0, 0.0],
+    ...[-1.0, 0.0, 0.0],
+    ...[-1.0, 0.0, 0.0],
+    ...[-1.0, 0.0, 0.0],
+  ];
+  const normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array(vertexNormals),
+    gl.STATIC_DRAW
+  );
+
+  // This array defines each face as two triangles, using the
+  // indices into the vertex array to specify each triangle's
+  // position.
+  const indices = [
+    ...[...[0, 1, 2], ...[0, 2, 3]], // front
+    ...[...[4, 5, 6], ...[4, 6, 7]], // back
+    ...[...[8, 9, 10], ...[8, 10, 11]], // top
+    ...[...[12, 13, 14], ...[12, 14, 15]], // bottom
+    ...[...[16, 17, 18], ...[16, 18, 19]], // right
+    ...[...[20, 21, 22], ...[20, 22, 23]], // left
+  ];
+  const indexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+  gl.bufferData(
+    gl.ELEMENT_ARRAY_BUFFER,
+    new Uint16Array(indices),
+    gl.STATIC_DRAW
+  );
+
   return {
     position: positionBuffer,
     color: colorBuffer,
+    indices: indexBuffer,
+    normals: normalBuffer,
   };
 }
 
@@ -203,12 +325,14 @@ function setup(gl) {
     attribLocations: {
       vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
       vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
+      vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
     },
     uniformLocations: {
       projectionMatrix: gl.getUniformLocation(
         shaderProgram,
         "uProjectionMatrix"
       ),
+      normalMatrix: gl.getUniformLocation(shaderProgram, "uNormalMatrix"),
       modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
     },
   };
@@ -236,7 +360,7 @@ const render_config = {
 };
 
 let state = initial;
-function draw(gl, squareRotation) {
+function draw(gl, cubeRotation) {
   // Step 1: Measure the boundaries of the plant.
   const measure_context = new MeasureContext();
   render(state, measure_context, render_config);
@@ -256,10 +380,15 @@ function draw(gl, squareRotation) {
 
   const modelViewMatrix = mat4.create();
   mat4.translate(modelViewMatrix, modelViewMatrix, [-0.0, 0.0, -6.0]);
-  mat4.rotate(modelViewMatrix, modelViewMatrix, squareRotation, [0, 0, 1]);
+  mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * 0.7, [0, 1, 0]);
+  mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation, [0, 0, 1]);
+
+  const normalMatrix = mat4.create();
+  mat4.invert(normalMatrix, modelViewMatrix);
+  mat4.transpose(normalMatrix, normalMatrix);
 
   {
-    const numComponents = 2;
+    const numComponents = 3;
     const type = gl.FLOAT;
     const normalize = false;
     const stride = 0;
@@ -274,6 +403,24 @@ function draw(gl, squareRotation) {
       offset
     );
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+  }
+
+  {
+    const numComponents = 3;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
+    gl.vertexAttribPointer(
+      programInfo.attribLocations.vertexNormal,
+      numComponents,
+      type,
+      normalize,
+      stride,
+      offset
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
   }
 
   {
@@ -294,11 +441,18 @@ function draw(gl, squareRotation) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
   }
 
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
   gl.useProgram(programInfo.program);
   gl.uniformMatrix4fv(
     programInfo.uniformLocations.projectionMatrix,
     false,
     projectionMatrix
+  );
+  gl.uniformMatrix4fv(
+    programInfo.uniformLocations.normalMatrix,
+    false,
+    normalMatrix
   );
   gl.uniformMatrix4fv(
     programInfo.uniformLocations.modelViewMatrix,
@@ -307,9 +461,10 @@ function draw(gl, squareRotation) {
   );
 
   {
+    const vertexCount = 36;
+    const type = gl.UNSIGNED_SHORT;
     const offset = 0;
-    const vertexCount = 4;
-    gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+    gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
   }
 
   // gardenContext.clearRect(0, 0, garden.width, garden.height);
@@ -324,15 +479,15 @@ function draw(gl, squareRotation) {
 }
 
 let then = 0;
-let squareRotation = 0;
+let rotation = 0;
 function onFrame(now) {
   now *= 0.001;
   const deltaTime = now - then;
   then = now;
 
-  squareRotation += deltaTime;
+  rotation += deltaTime;
 
-  draw(gardenContext, squareRotation);
+  draw(gardenContext, rotation);
   requestAnimationFrame(onFrame);
 }
 requestAnimationFrame(onFrame);
@@ -346,4 +501,3 @@ if (!stepButton) {
   throw Error("Cannot find step button.");
 }
 stepButton.addEventListener("click", step);
-draw(gardenContext);
