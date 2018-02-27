@@ -1,6 +1,6 @@
 // @flow
 // @format
-const { mat4 } = require("gl-matrix");
+const { mat4, vec3 } = require("gl-matrix");
 
 // The core functionality for l-systems is like this.
 function rewrite(state, rules) {
@@ -26,35 +26,41 @@ function move(x, y, heading, length) {
 }
 
 class MeasureContext {
-  min_x: number;
-  min_y: number;
-  max_x: number;
-  max_y: number;
+  min: vec3;
+  max: vec3;
 
   constructor() {
-    this.min_x = 0;
-    this.max_x = 0;
-    this.min_y = 0;
-    this.max_y = 0;
+    this.min = vec3.create();
+    this.max = vec3.create();
   }
-  beginPath() {}
-  stroke() {}
-  moveTo(x, y) {
-    if (this.min_x === undefined || x < this.min_x) {
-      this.min_x = x;
-    }
-    if (this.max_x === undefined || x > this.max_x) {
-      this.max_x = x;
-    }
-    if (this.min_y === undefined || y < this.min_y) {
-      this.min_y = y;
-    }
-    if (this.max_y === undefined || y > this.max_y) {
-      this.max_y = y;
-    }
+
+  line(matrix, vector) {
+    // UGH.
   }
-  lineTo(x, y) {
-    this.moveTo(x, y);
+}
+
+class RenderContext {
+  gl: WebGLRenderingContext;
+  initial_matrix: mat4;
+  target_matrix: mat4;
+  projection_matrix: mat4;
+
+  constructor(gl, projection_matrix, initial_matrix) {
+    this.gl = gl;
+
+    // Translate in by a little bit, just so that the center is the base of the
+    // cube.
+    this.initial_matrix = mat4.create();
+    mat4.translate(this.initial_matrix, initial_matrix, [0, 0, -0.5]);
+
+    this.projection_matrix = projection_matrix;
+    this.target_matrix = mat4.create();
+  }
+
+  line(matrix, vector) {
+    mat4.multiply(this.target_matrix, this.initial_matrix, matrix);
+    mat4.scale(this.target_matrix, this.target_matrix, vector);
+    drawCube(this.gl, this.projection_matrix, this.target_matrix);
   }
 }
 
@@ -62,35 +68,36 @@ function render(state, context, config) {
   let { x, y, heading, step_length, angle_delta } = config;
   const state_stack = [];
 
-  context.beginPath();
-  context.moveTo(x, y);
+  // These head and left vectors are somewhat arbitrary?
+  const head_vector = vec3.fromValues(0, 0, -1);
+  const left_vector = vec3.fromValues(-1, 0, 0);
+  const up_vector = vec3.create();
+  vec3.cross(up_vector, head_vector, left_vector);
+
+  // TODO: Actually initialize by head/left/up?
+  let current_matrix: mat4 = mat4.create();
+
+  const scale_vector = vec3.fromValues(0.25, 0.25, step_length);
+  vec3.scale(head_vector, head_vector, step_length);
 
   for (let i = 0; i < state.length; i++) {
     const current = state[i];
     if (current == "F") {
-      // Move forward by straight_length
-      const [new_x, new_y] = move(x, y, heading, step_length);
-      context.lineTo(new_x, new_y);
-      x = new_x;
-      y = new_y;
+      // Draw a "line" (always draws along -Z, which is also head.)
+      context.line(current_matrix, scale_vector);
+      mat4.translate(current_matrix, current_matrix, head_vector);
     } else if (current == "f") {
-      const [new_x, new_y] = move(x, y, heading, step_length);
-      context.moveTo(new_x, new_y);
-      x = new_x;
-      y = new_y;
+      mat4.translate(current_matrix, current_matrix, head_vector);
     } else if (current == "+") {
-      heading += angle_delta;
+      mat4.rotate(current_matrix, current_matrix, angle_delta, up_vector);
     } else if (current == "-") {
-      heading -= angle_delta;
+      mat4.rotate(current_matrix, current_matrix, -angle_delta, up_vector);
     } else if (current == "[") {
-      state_stack.push([x, y, heading]);
+      state_stack.push(mat4.clone(current_matrix));
     } else if (current == "]") {
-      [x, y, heading] = state_stack.pop();
-      context.moveTo(x, y);
+      current_matrix = state_stack.pop();
     }
   }
-
-  context.stroke();
 }
 
 function toRadians(degrees) {
@@ -183,40 +190,40 @@ function loadShader(gl, type, source) {
 function initBuffers(gl) {
   const positions = [
     // Front face
-    ...[-1.0, -1.0, 1.0],
-    ...[1.0, -1.0, 1.0],
-    ...[1.0, 1.0, 1.0],
-    ...[-1.0, 1.0, 1.0],
+    ...[-0.5, -0.5, 0.5],
+    ...[0.5, -0.5, 0.5],
+    ...[0.5, 0.5, 0.5],
+    ...[-0.5, 0.5, 0.5],
 
     // Back face
-    ...[-1.0, -1.0, -1.0],
-    ...[-1.0, 1.0, -1.0],
-    ...[1.0, 1.0, -1.0],
-    ...[1.0, -1.0, -1.0],
+    ...[-0.5, -0.5, -0.5],
+    ...[-0.5, 0.5, -0.5],
+    ...[0.5, 0.5, -0.5],
+    ...[0.5, -0.5, -0.5],
 
     // Top face
-    ...[-1.0, 1.0, -1.0],
-    ...[-1.0, 1.0, 1.0],
-    ...[1.0, 1.0, 1.0],
-    ...[1.0, 1.0, -1.0],
+    ...[-0.5, 0.5, -0.5],
+    ...[-0.5, 0.5, 0.5],
+    ...[0.5, 0.5, 0.5],
+    ...[0.5, 0.5, -0.5],
 
     // Bottom face
-    ...[-1.0, -1.0, -1.0],
-    ...[1.0, -1.0, -1.0],
-    ...[1.0, -1.0, 1.0],
-    ...[-1.0, -1.0, 1.0],
+    ...[-0.5, -0.5, -0.5],
+    ...[0.5, -0.5, -0.5],
+    ...[0.5, -0.5, 0.5],
+    ...[-0.5, -0.5, 0.5],
 
     // Right face
-    ...[1.0, -1.0, -1.0],
-    ...[1.0, 1.0, -1.0],
-    ...[1.0, 1.0, 1.0],
-    ...[1.0, -1.0, 1.0],
+    ...[0.5, -0.5, -0.5],
+    ...[0.5, 0.5, -0.5],
+    ...[0.5, 0.5, 0.5],
+    ...[0.5, -0.5, 0.5],
 
     // Left face
-    ...[-1.0, -1.0, -1.0],
-    ...[-1.0, -1.0, 1.0],
-    ...[-1.0, 1.0, 1.0],
-    ...[-1.0, 1.0, -1.0],
+    ...[-0.5, -0.5, -0.5],
+    ...[-0.5, -0.5, 0.5],
+    ...[-0.5, 0.5, 0.5],
+    ...[-0.5, 0.5, -0.5],
   ];
   const positionBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -353,7 +360,7 @@ const render_config = {
   x: 0,
   y: 0,
   heading: Math.PI * 1.5,
-  step_length: 10,
+  step_length: 3,
   step_factor: 1,
   angle_delta: angle,
 };
@@ -361,10 +368,10 @@ const render_config = {
 let state = initial;
 function draw(gl, cubeRotation) {
   // Step 1: Measure the boundaries of the plant.
-  const measure_context = new MeasureContext();
-  render(state, measure_context, render_config);
-  const render_width = measure_context.max_x - measure_context.min_x;
-  const render_height = measure_context.max_y - measure_context.min_y;
+  // const measure_context = new MeasureContext();
+  // render(state, measure_context, render_config);
+  // const render_width = measure_context.max_x - measure_context.min_x;
+  // const render_height = measure_context.max_y - measure_context.min_y;
 
   // Step 2: Draw the plant.
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -378,10 +385,27 @@ function draw(gl, cubeRotation) {
   mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
 
   const modelViewMatrix = mat4.create();
-  mat4.translate(modelViewMatrix, modelViewMatrix, [-0.0, 0.0, -6.0]);
+  mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, -6.0]);
   mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * 0.7, [0, 1, 0]);
   mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation, [0, 0, 1]);
 
+  const ctx = new RenderContext(gl, projectionMatrix, modelViewMatrix);
+  render(state, ctx, render_config);
+  //drawCube(gl, projectionMatrix, modelViewMatrix);
+
+  // drawCube(gl, projectionMatrix, modelViewMatrix);
+  // gardenContext.clearRect(0, 0, garden.width, garden.height);
+  // gardenContext.save();
+  // gardenContext.scale(
+  //   garden.width / render_width,
+  //   garden.height / render_height
+  // );
+  // gardenContext.translate(-measure_context.min_x, -measure_context.min_y);
+  // render(state, gardenContext, render_config);
+  // gardenContext.restore();
+}
+
+function drawCube(gl, projectionMatrix, modelViewMatrix) {
   const normalMatrix = mat4.create();
   mat4.invert(normalMatrix, modelViewMatrix);
   mat4.transpose(normalMatrix, normalMatrix);
@@ -465,16 +489,6 @@ function draw(gl, cubeRotation) {
     const offset = 0;
     gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
   }
-
-  // gardenContext.clearRect(0, 0, garden.width, garden.height);
-  // gardenContext.save();
-  // gardenContext.scale(
-  //   garden.width / render_width,
-  //   garden.height / render_height
-  // );
-  // gardenContext.translate(-measure_context.min_x, -measure_context.min_y);
-  // render(state, gardenContext, render_config);
-  // gardenContext.restore();
 }
 
 let then = 0;
