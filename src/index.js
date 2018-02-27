@@ -26,12 +26,10 @@ function move(x, y, heading, length) {
 }
 
 class MeasureContext {
-  /*::
   min_x: number;
   min_y: number;
   max_x: number;
   max_y: number;
-  */
 
   constructor() {
     this.min_x = 0;
