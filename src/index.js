@@ -57,9 +57,10 @@ class RenderContext {
     this.target_matrix = mat4.create();
   }
 
-  line(matrix, vector) {
+  line(matrix, length) {
     mat4.multiply(this.target_matrix, this.initial_matrix, matrix);
-    mat4.scale(this.target_matrix, this.target_matrix, vector);
+    mat4.translate(this.target_matrix, this.target_matrix, [0, 0, -length / 2]);
+    mat4.scale(this.target_matrix, this.target_matrix, [0.25, 0.25, length]);
     drawCube(this.gl, this.projection_matrix, this.target_matrix);
   }
 }
@@ -77,14 +78,13 @@ function render(state, context, config) {
   // TODO: Actually initialize by head/left/up?
   let current_matrix: mat4 = mat4.create();
 
-  const scale_vector = vec3.fromValues(0.25, 0.25, step_length);
   vec3.scale(head_vector, head_vector, step_length);
 
   for (let i = 0; i < state.length; i++) {
     const current = state[i];
     if (current == "F") {
       // Draw a "line" (always draws along -Z, which is also head.)
-      context.line(current_matrix, scale_vector);
+      context.line(current_matrix, step_length);
       mat4.translate(current_matrix, current_matrix, head_vector);
     } else if (current == "f") {
       mat4.translate(current_matrix, current_matrix, head_vector);
@@ -106,7 +106,9 @@ function toRadians(degrees) {
 
 // Definition here:
 const initial = "X";
+//const initial = "F+F+F+F";
 const angle = toRadians(22.5);
+//const angle = toRadians(90.0);
 const rules = {
   X: ["F-[[X]+X]+F[+FX]-X"],
   F: ["FF"],
