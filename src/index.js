@@ -2,7 +2,42 @@
 // @format
 const { mat4, vec3 } = require("gl-matrix");
 
-// The core functionality for l-systems is like this.
+// Here are a gallery of systems that I'm playing with!
+const systems = {
+  hilbert2d: {
+    initial: "L",
+    angle: toRadians(90),
+    initial_steps: 3,
+    rules: {
+      L: ["+RF-LFL-FR+"],
+      R: ["-LF+RFR+FL-"],
+    },
+  },
+  hilbert3d: {
+    initial: "A",
+    angle: toRadians(90),
+    initial_steps: 1,
+    rules: {
+      A: ["B-F+CFC+F-D&F^D-F+&&CFC+F+B//"],
+      B: ["A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//"],
+      C: ["|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//"],
+      D: ["|CFB-F+B|FA&F^A&&FB-F+B|FC//"],
+    },
+  },
+
+  axialf: {
+    initial: "X",
+    angle: toRadians(22.5),
+    initial_steps: 5,
+    rules: {
+      X: ["F-[[X]+X]+F[+FX]-X"],
+      F: ["FF"],
+    },
+  },
+};
+
+const { initial, angle, initial_steps, rules } = systems["hilbert2d"];
+
 function rewrite(state, rules) {
   let result = "";
   for (let i = 0; i < state.length; i++) {
@@ -19,6 +54,16 @@ function rewrite(state, rules) {
   return result;
 }
 
+let state = initial;
+function step() {
+  state = rewrite(state, rules);
+}
+
+for (let i = 0; i < initial_steps; i++) {
+  step();
+}
+
+// Rendering stuff
 class MeasureContext {
   min: vec3;
   max: vec3;
@@ -102,6 +147,16 @@ function render(state, context, config) {
       mat4.rotate(current_matrix, current_matrix, angle_delta, up_vector);
     } else if (current == "-") {
       mat4.rotate(current_matrix, current_matrix, -angle_delta, up_vector);
+    } else if (current == "&") {
+      mat4.rotate(current_matrix, current_matrix, angle_delta, left_vector);
+    } else if (current == "^") {
+      mat4.rotate(current_matrix, current_matrix, -angle_delta, left_vector);
+    } else if (current == "\\") {
+      mat4.rotate(current_matrix, current_matrix, angle_delta, head_vector);
+    } else if (current == "/") {
+      mat4.rotate(current_matrix, current_matrix, -angle_delta, head_vector);
+    } else if (current == "|") {
+      mat4.rotate(current_matrix, current_matrix, Math.PI / 2, up_vector);
     } else if (current == "[") {
       state_stack.push(mat4.clone(current_matrix));
     } else if (current == "]") {
@@ -113,14 +168,6 @@ function render(state, context, config) {
 function toRadians(degrees) {
   return degrees * (Math.PI / 180.0);
 }
-
-// Definition here:
-const initial = "X";
-const angle = toRadians(22.5);
-const rules = {
-  X: ["F-[[X]+X]+F[+FX]-X"],
-  F: ["FF"],
-};
 
 // HTML mechanics, WebGL bullshit.
 const vsSource = `
@@ -371,7 +418,6 @@ const render_config = {
   angle_delta: angle,
 };
 
-let state = initial;
 function draw(gl, cubeRotation) {
   // Step 1: Measure the boundaries of the plant.
   const measure_context = new MeasureContext();
@@ -411,18 +457,7 @@ function draw(gl, cubeRotation) {
 
   const ctx = new RenderContext(gl, projectionMatrix, modelViewMatrix);
   render(state, ctx, render_config);
-  //drawCube(gl, projectionMatrix, modelViewMatrix);
-
   // drawCube(gl, projectionMatrix, modelViewMatrix);
-  // gardenContext.clearRect(0, 0, garden.width, garden.height);
-  // gardenContext.save();
-  // gardenContext.scale(
-  //   garden.width / render_width,
-  //   garden.height / render_height
-  // );
-  // gardenContext.translate(-measure_context.min_x, -measure_context.min_y);
-  // render(state, gardenContext, render_config);
-  // gardenContext.restore();
 }
 
 function drawCube(gl, projectionMatrix, modelViewMatrix) {
@@ -525,9 +560,6 @@ function onFrame(now) {
 }
 requestAnimationFrame(onFrame);
 
-function step() {
-  state = rewrite(state, rules);
-}
 const stepButton = document.getElementById("step");
 if (!stepButton) {
   throw Error("Cannot find step button.");
