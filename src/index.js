@@ -2,70 +2,140 @@
 // @format
 const { mat4, vec3 } = require("gl-matrix");
 
+type production = {| probability: number, value: string[] |};
+
+// parse a rules dictionary into a more usable form.
+//
+// Rules wind up being symbol -> [[probability, [symbol]] but for many systems
+// and rules that's super tedious to type in. So we have this parser.
+function parse_rules(rule_dictionary): { [string]: production[] } {
+  function parse_string(rule_value: string) {
+    // Symbols stand alone, whitespace is ignored, everything between
+    // parenthesis are treated as a single symbol.
+    //
+    const symbols = [];
+    let i = 0;
+    while (i < rule_value.length) {
+      switch (rule_value[i]) {
+        case " ":
+          break;
+        case "(":
+          {
+            i++;
+            const start = i;
+            while (i < rule_value.length && rule_value[i] != ")") {
+              i++;
+            }
+            symbols.push(rule_value.substr(start, i - start));
+          }
+          break;
+        default:
+          symbols.push(rule_value[i]);
+          break;
+      }
+      i++;
+    }
+    return symbols;
+  }
+
+  const result = {};
+  for (const rule in rule_dictionary) {
+    let new_value;
+    let rule_value = rule_dictionary[rule];
+    if (typeof rule_value === "string" || rule_value instanceof String) {
+      new_value = [{ probability: 1, value: parse_string(rule_value) }];
+    } else {
+      console.log("K: ", rule, "V: ", rule_value);
+      throw Error("Not supported: rule of " + rule_value);
+    }
+    result[rule] = new_value;
+  }
+  return result;
+}
+
 // Here are a gallery of systems that I'm playing with!
 const systems = {
   // Two-dimensional hilbert curve
   hilbert2d: {
-    initial: "L",
+    initial: ["L"],
     angle: toRadians(90),
     initial_steps: 3,
-    rules: {
-      L: ["+RF-LFL-FR+"],
-      R: ["-LF+RFR+FL-"],
-    },
+    rules: parse_rules({
+      L: "+RF-LFL-FR+",
+      R: "-LF+RFR+FL-",
+    }),
   },
 
   // Three-dimensional hilbert curve
   hilbert3d: {
-    initial: "A",
+    initial: ["A"],
     angle: toRadians(90),
     initial_steps: 2,
-    rules: {
-      A: ["B-F+CFC+F-D&F^D-F+&&CFC+F+B//"],
-      B: ["A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//"],
-      C: ["|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//"],
-      D: ["|CFB-F+B|FA&F^A&&FB-F+B|FC//"],
-    },
+    rules: parse_rules({
+      A: "B-F+CFC+F-D&F^D-F+&&CFC+F+B//",
+      B: "A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//",
+      C: "|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//",
+      D: "|CFB-F+B|FA&F^A&&FB-F+B|FC//",
+    }),
   },
 
   // Example 'f' of axial trees, kinda pretty.
   axialf: {
-    initial: "X",
+    initial: ["X"],
     angle: toRadians(22.5),
     initial_steps: 5,
-    rules: {
-      X: ["F-[[X]+X]+F[+FX]-X"],
-      F: ["FF"],
-    },
+    rules: parse_rules({
+      X: "F-[[X]+X]+F[+FX]-X",
+      F: "FF",
+    }),
   },
 
   // "A three-dimensional bush-like structure"
   // This one has some instructions for colors and shapes which I haven't
   // implemented yet.
   first_bush: {
-    initial: "A",
+    initial: ["A"],
     angle: toRadians(22.5),
     initial_steps: 7,
-    rules: {
-      A: ["[&FL!A]/////'[&FL!A]///////'[&FL!A]"],
-      F: ["S/////F"],
-      S: ["FL"],
-      L: ["['''^^{-f+f+f-|-f+f+f}]"],
-    },
+    rules: parse_rules({
+      A: "[&FL!A]/////'[&FL!A]///////'[&FL!A]",
+      F: "S/////F",
+      S: "FL",
+      L: "['''^^{-f+f+f-|-f+f+f}]",
+    }),
+  },
+
+  flower: {
+    initial: ["plant"],
+    angle: toRadians(18),
+    initial_steps: 5,
+    rules: parse_rules({
+      plant:
+        "(internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)" +
+        "[ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)",
+      internode: "F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)",
+      seg: "(seg) F (seg)",
+      leaf: "[' { + f - ff - f + | + f - ff - f } ]",
+      flower:
+        "[& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) //// (wedge)" +
+        "//// (wedge) ]",
+      pedicel: "FF",
+      wedge: "['^F][{&&&&-f+f|-f+f}]",
+    }),
   },
 };
 
-const { initial, angle, initial_steps, rules } = systems["first_bush"];
+const { initial, angle, initial_steps, rules } = systems["flower"];
 
-function rewrite(state, rules) {
-  let result = "";
+function rewrite(state: string[], rules): string[] {
+  let result = [];
   for (let i = 0; i < state.length; i++) {
     const current = state[i];
     const replacements = rules[current] || [];
     if (replacements.length == 0) {
-      result += current;
+      result.push(current);
     } else if (replacements.length == 1) {
-      result += replacements[0];
+      result.push(...replacements[0].value);
     } else {
       throw new Error("Unsupported as of yet.");
     }
@@ -591,7 +661,7 @@ const debugStepButton = document.getElementById("debug_plus");
 if (debugStepButton) {
   debugStepButton.addEventListener("click", function() {
     DEBUG_RENDER_LIMIT += 1;
-    console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
+    //console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
   });
 }
 
@@ -599,6 +669,6 @@ const debugMinusButton = document.getElementById("debug_minus");
 if (debugMinusButton) {
   debugMinusButton.addEventListener("click", function() {
     DEBUG_RENDER_LIMIT -= 1;
-    console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
+    //console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
   });
 }
