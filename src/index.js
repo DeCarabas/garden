@@ -4,6 +4,7 @@ const { mat4, vec3 } = require("gl-matrix");
 
 // Here are a gallery of systems that I'm playing with!
 const systems = {
+  // Two-dimensional hilbert curve
   hilbert2d: {
     initial: "L",
     angle: toRadians(90),
@@ -13,10 +14,12 @@ const systems = {
       R: ["-LF+RFR+FL-"],
     },
   },
+
+  // Three-dimensional hilbert curve
   hilbert3d: {
     initial: "A",
     angle: toRadians(90),
-    initial_steps: 1,
+    initial_steps: 2,
     rules: {
       A: ["B-F+CFC+F-D&F^D-F+&&CFC+F+B//"],
       B: ["A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//"],
@@ -25,6 +28,7 @@ const systems = {
     },
   },
 
+  // Example 'f' of axial trees, kinda pretty.
   axialf: {
     initial: "X",
     angle: toRadians(22.5),
@@ -36,7 +40,7 @@ const systems = {
   },
 };
 
-const { initial, angle, initial_steps, rules } = systems["hilbert2d"];
+const { initial, angle, initial_steps, rules } = systems["hilbert3d"];
 
 function rewrite(state, rules) {
   let result = "";
@@ -55,8 +59,10 @@ function rewrite(state, rules) {
 }
 
 let state = initial;
+let DEBUG_RENDER_LIMIT = state.length;
 function step() {
   state = rewrite(state, rules);
+  DEBUG_RENDER_LIMIT = state.length;
 }
 
 for (let i = 0; i < initial_steps; i++) {
@@ -135,7 +141,7 @@ function render(state, context, config) {
 
   vec3.scale(head_vector, head_vector, step_length);
 
-  for (let i = 0; i < state.length; i++) {
+  for (let i = 0; i < state.length && i < DEBUG_RENDER_LIMIT; i++) {
     const current = state[i];
     if (current == "F") {
       // Draw a "line" (always draws along -Z, which is also head.)
@@ -156,7 +162,7 @@ function render(state, context, config) {
     } else if (current == "/") {
       mat4.rotate(current_matrix, current_matrix, -angle_delta, head_vector);
     } else if (current == "|") {
-      mat4.rotate(current_matrix, current_matrix, Math.PI / 2, up_vector);
+      mat4.rotate(current_matrix, current_matrix, Math.PI, up_vector);
     } else if (current == "[") {
       state_stack.push(mat4.clone(current_matrix));
     } else if (current == "]") {
@@ -565,3 +571,19 @@ if (!stepButton) {
   throw Error("Cannot find step button.");
 }
 stepButton.addEventListener("click", step);
+
+const debugStepButton = document.getElementById("debug_plus");
+if (debugStepButton) {
+  debugStepButton.addEventListener("click", function() {
+    DEBUG_RENDER_LIMIT += 1;
+    console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
+  });
+}
+
+const debugMinusButton = document.getElementById("debug_minus");
+if (debugMinusButton) {
+  debugMinusButton.addEventListener("click", function() {
+    DEBUG_RENDER_LIMIT -= 1;
+    console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
+  });
+}
