@@ -38,9 +38,24 @@ const systems = {
       F: ["FF"],
     },
   },
+
+  // "A three-dimensional bush-like structure"
+  // This one has some instructions for colors and shapes which I haven't
+  // implemented yet.
+  first_bush: {
+    initial: "A",
+    angle: toRadians(22.5),
+    initial_steps: 7,
+    rules: {
+      A: ["[&FL!A]/////'[&FL!A]///////'[&FL!A]"],
+      F: ["S/////F"],
+      S: ["FL"],
+      L: ["['''^^{-f+f+f-|-f+f+f}]"],
+    },
+  },
 };
 
-const { initial, angle, initial_steps, rules } = systems["hilbert3d"];
+const { initial, angle, initial_steps, rules } = systems["first_bush"];
 
 function rewrite(state, rules) {
   let result = "";
