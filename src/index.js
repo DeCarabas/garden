@@ -19,23 +19,24 @@ function rewrite(state, rules) {
   return result;
 }
 
-function move(x, y, heading, length) {
-  const dx = length * Math.cos(heading);
-  const dy = length * Math.sin(heading);
-  return [x + dx, y + dy];
-}
-
 class MeasureContext {
   min: vec3;
   max: vec3;
 
   constructor() {
-    this.min = vec3.create();
-    this.max = vec3.create();
+    this.min = vec3.fromValues(0, 0, 0);
+    this.max = vec3.fromValues(0, 0, 0);
   }
 
-  line(matrix, vector) {
-    // UGH.
+  line(matrix, length) {
+    const target = vec3.create();
+    vec3.transformMat4(target, [0, 0, 0], matrix);
+    vec3.min(this.min, this.min, target);
+    vec3.max(this.max, this.max, target);
+
+    vec3.transformMat4(target, [0, 0, length], matrix);
+    vec3.min(this.min, this.min, target);
+    vec3.max(this.max, this.max, target);
   }
 }
 
@@ -44,6 +45,8 @@ class RenderContext {
   initial_matrix: mat4;
   target_matrix: mat4;
   projection_matrix: mat4;
+  scale_vec: vec3;
+  translate_vec: vec3;
 
   constructor(gl, projection_matrix, initial_matrix) {
     this.gl = gl;
@@ -55,18 +58,25 @@ class RenderContext {
 
     this.projection_matrix = projection_matrix;
     this.target_matrix = mat4.create();
+
+    const LINE_THICKNESS = 0.1;
+    this.scale_vec = [LINE_THICKNESS, LINE_THICKNESS, 1];
+    this.translate_vec = [0, 0, 0];
   }
 
   line(matrix, length) {
+    this.scale_vec[2] = length;
+    this.translate_vec[2] = -length / 2;
+
     mat4.multiply(this.target_matrix, this.initial_matrix, matrix);
-    mat4.translate(this.target_matrix, this.target_matrix, [0, 0, -length / 2]);
-    mat4.scale(this.target_matrix, this.target_matrix, [0.25, 0.25, length]);
+    mat4.translate(this.target_matrix, this.target_matrix, this.translate_vec);
+    mat4.scale(this.target_matrix, this.target_matrix, this.scale_vec);
     drawCube(this.gl, this.projection_matrix, this.target_matrix);
   }
 }
 
 function render(state, context, config) {
-  let { x, y, heading, step_length, angle_delta } = config;
+  let { step_length, angle_delta } = config;
   const state_stack = [];
 
   // These head and left vectors are somewhat arbitrary?
@@ -106,9 +116,7 @@ function toRadians(degrees) {
 
 // Definition here:
 const initial = "X";
-//const initial = "F+F+F+F";
 const angle = toRadians(22.5);
-//const angle = toRadians(90.0);
 const rules = {
   X: ["F-[[X]+X]+F[+FX]-X"],
   F: ["FF"],
@@ -359,21 +367,26 @@ const programInfo = setup(gardenContext);
 const buffers = initBuffers(gardenContext);
 
 const render_config = {
-  x: 0,
-  y: 0,
-  heading: Math.PI * 1.5,
-  step_length: 3,
-  step_factor: 1,
+  step_length: 0.5,
   angle_delta: angle,
 };
 
 let state = initial;
 function draw(gl, cubeRotation) {
   // Step 1: Measure the boundaries of the plant.
-  // const measure_context = new MeasureContext();
-  // render(state, measure_context, render_config);
-  // const render_width = measure_context.max_x - measure_context.min_x;
-  // const render_height = measure_context.max_y - measure_context.min_y;
+  const measure_context = new MeasureContext();
+  render(state, measure_context, render_config);
+
+  // Let's just look at the middle of the bounding box...
+  // (Borrow "center" for a second to figure out the bounding box size.)
+  const center = vec3.create();
+  const radius =
+    vec3.length(
+      vec3.subtract(center, measure_context.max, measure_context.min)
+    ) / 2;
+  // (Now actually compute the center point of the bounding box.)
+  vec3.lerp(center, measure_context.min, measure_context.max, 0.5);
+  center[0] = 0;
 
   // Step 2: Draw the plant.
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -381,15 +394,20 @@ function draw(gl, cubeRotation) {
   const fieldOfView = toRadians(45);
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
   const zNear = 0.1;
-  const zFar = 100.0;
+  const zFar = 1000.0;
+
+  const eyeDistance = Math.max(radius / Math.sin(fieldOfView * 0.5), 0.1);
+  const eyeVector = [0, -(eyeDistance * 1.01), 0];
+  const eyePosition = vec3.subtract(vec3.create(), center, eyeVector);
 
   const projectionMatrix = mat4.create();
   mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
 
   const modelViewMatrix = mat4.create();
-  mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, -6.0]);
-  mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * 0.7, [0, 1, 0]);
+  mat4.lookAt(modelViewMatrix, eyePosition, center, [0, 0, -1]);
   mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation, [0, 0, 1]);
+  // mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, -6.0]);
+  // mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * 0.7, [0, 1, 0]);
 
   const ctx = new RenderContext(gl, projectionMatrix, modelViewMatrix);
   render(state, ctx, render_config);
@@ -509,7 +527,6 @@ requestAnimationFrame(onFrame);
 
 function step() {
   state = rewrite(state, rules);
-  render_config.step_length /= render_config.step_factor;
 }
 const stepButton = document.getElementById("step");
 if (!stepButton) {
