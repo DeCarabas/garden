@@ -5,14 +5,12 @@ const { mat4, vec3 } = require("gl-matrix");
 type production = {| probability: number, value: string[] |};
 
 // parse a rules dictionary into a more usable form.
-//
-// Rules wind up being symbol -> [[probability, [symbol]] but for many systems
-// and rules that's super tedious to type in. So we have this parser.
-function parse_rules(rule_dictionary): { [string]: production[] } {
+function parse_rules(rule_dictionary: {
+  [string]: string | string[],
+}): { [string]: production[] } {
   function parse_string(rule_value: string) {
     // Symbols stand alone, whitespace is ignored, everything between
     // parenthesis are treated as a single symbol.
-    //
     const symbols = [];
     let i = 0;
     while (i < rule_value.length) {
@@ -42,11 +40,16 @@ function parse_rules(rule_dictionary): { [string]: production[] } {
   for (const rule in rule_dictionary) {
     let new_value;
     let rule_value = rule_dictionary[rule];
-    if (typeof rule_value === "string" || rule_value instanceof String) {
+    if (typeof rule_value === "string") {
       new_value = [{ probability: 1, value: parse_string(rule_value) }];
+    } else if (rule_value instanceof Array) {
+      new_value = rule_value.map(r => {
+        return { probability: 1.0 / rule_value.length, value: parse_string(r) };
+      });
     } else {
-      console.log("K: ", rule, "V: ", rule_value);
-      throw Error("Not supported: rule of " + rule_value);
+      throw Error(
+        "Not supported: rule of type " + typeof rule_value + ": " + rule_value
+      );
     }
     result[rule] = new_value;
   }
@@ -123,11 +126,20 @@ const systems = {
       wedge: "['^F][{&&&&-f+f|-f+f}]",
     }),
   },
+
+  stochastic: {
+    initial: ["F"],
+    angle: toRadians(22.5),
+    initial_steps: 5,
+    rules: parse_rules({
+      F: ["F[+F]F[-F]F", "F[+F]F", "F[-F]F"],
+    }),
+  },
 };
 
-const { initial, angle, initial_steps, rules } = systems["flower"];
+const { initial, angle, initial_steps, rules } = systems["stochastic"];
 
-function rewrite(state: string[], rules): string[] {
+function rewrite(state, rules) {
   let result = [];
   for (let i = 0; i < state.length; i++) {
     const current = state[i];
@@ -137,7 +149,13 @@ function rewrite(state: string[], rules): string[] {
     } else if (replacements.length == 1) {
       result.push(...replacements[0].value);
     } else {
-      throw new Error("Unsupported as of yet.");
+      let target = Math.random();
+      const replacement =
+        replacements.find(p => {
+          target -= p.probability;
+          return target <= 0;
+        }) || replacements[replacements.length - 1];
+      result.push(...replacement.value);
     }
   }
   return result;
