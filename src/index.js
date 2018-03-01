@@ -135,6 +135,29 @@ const systems = {
       F: ["F[+F]F[-F]F", "F[+F]F", "F[-F]F"],
     }),
   },
+
+  rando_flower: {
+    initial: ["plant"],
+    angle: toRadians(18),
+    initial_steps: 5,
+    rules: parse_rules({
+      plant:
+        "(internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)" +
+        "[ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)",
+      internode: "F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)",
+      seg: [
+        "(seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)",
+        "(seg) F (seg)",
+        "(seg)",
+      ],
+      leaf: "[' { + f - ff - f + | + f - ff - f } ]",
+      flower:
+        "[& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) //// (wedge)" +
+        "//// (wedge) ]",
+      pedicel: "FF",
+      wedge: "['^F][{&&&&-f+f|-f+f}]",
+    }),
+  },
 };
 
 const { initial, angle, initial_steps, rules } = systems["stochastic"];
@@ -153,24 +176,30 @@ function rewrite(state, rules) {
       const replacement =
         replacements.find(p => {
           target -= p.probability;
-          return target <= 0;
+          return target < 0;
         }) || replacements[replacements.length - 1];
+
       result.push(...replacement.value);
     }
   }
   return result;
 }
 
-let state = initial;
-let DEBUG_RENDER_LIMIT = state.length;
+let state, DEBUG_RENDER_LIMIT;
+
 function step() {
   state = rewrite(state, rules);
   DEBUG_RENDER_LIMIT = state.length;
 }
 
-for (let i = 0; i < initial_steps; i++) {
-  step();
+function init() {
+  state = initial;
+  DEBUG_RENDER_LIMIT = state.length;
+  for (let i = 0; i < initial_steps; i++) {
+    step();
+  }
 }
+init();
 
 // Rendering stuff
 class MeasureContext {
@@ -674,6 +703,11 @@ if (!stepButton) {
   throw Error("Cannot find step button.");
 }
 stepButton.addEventListener("click", step);
+
+const resetButton = document.getElementById("reset");
+if (resetButton) {
+  resetButton.addEventListener("click", init);
+}
 
 const debugStepButton = document.getElementById("debug_plus");
 if (debugStepButton) {
