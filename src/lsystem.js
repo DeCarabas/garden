@@ -1,11 +1,11 @@
 // @flow
 // @format
-const invariant = require('invariant');
+const invariant = require("invariant");
 
 type value = number | boolean;
 type expr = number | boolean | string | expr[];
 
-function evalExpression(expr: expr, env: {[string]: value}): value {
+function evalExpression(expr: expr, env: { [string]: value }): value {
   if (typeof expr == "string") {
     return env[expr];
   } else if (typeof expr == "number" || typeof expr == "boolean") {
@@ -27,27 +27,25 @@ function evalExpression(expr: expr, env: {[string]: value}): value {
         invariant(typeof args[0] == "number", "Args must be numbers");
         invariant(typeof args[1] == "number", "Args must be numbers");
         return dbg(args[0] / args[1]);
-      case "+":
-        {
-          let result = 0;
-          for(let i = 0; i < args.length; i++) {
-            invariant(typeof args[i] == "number", "Args must be numbers");
-            result += args[i];
-          }
-          return dbg(result);
+      case "+": {
+        let result = 0;
+        for (let i = 0; i < args.length; i++) {
+          invariant(typeof args[i] == "number", "Args must be numbers");
+          result += args[i];
         }
-      case "*":
-        {
-          let result = 1;
-          for(let i = 0; i < args.length; i++) {
-            invariant(typeof args[i] == "number", "Args must be numbers");
-            result *= args[i];
-          }
-          return result;
+        return dbg(result);
+      }
+      case "*": {
+        let result = 1;
+        for (let i = 0; i < args.length; i++) {
+          invariant(typeof args[i] == "number", "Args must be numbers");
+          result *= args[i];
         }
+        return result;
+      }
       case "==": {
         for (let i = 1; i < args.length; i++) {
-          if ((args[0] : any) != (args[i] : any)) {
+          if ((args[0]: any) != (args[i]: any)) {
             return dbg(false);
           }
         }
@@ -157,5 +155,5 @@ const full_pattern = {
 };
 
 module.exports = {
-  evalExpression
-}
+  evalExpression,
+};
