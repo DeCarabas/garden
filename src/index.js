@@ -160,6 +160,124 @@ const systems = {
   },
 };
 
+function eval_expression(expr: any[], env): any {
+  if (typeof expr == "string") {
+    return env[expr];
+  } else if (typeof expr == "number") {
+    return expr;
+  } else {
+    const args = expr.slice(1).map(e => eval_expression(e, env));
+    switch (expr[0]) {
+      case "-":
+        return args[0] - args[1];
+      case "/":
+        return args[0] / args[1];
+      case "+":
+        return args.reduce((l, r) => l + r, 0);
+      case "*":
+        return args.reduce((l, r) => l * r, 1);
+      case "==": {
+        for (let i = 1; i < expr.length; i++) {
+          if (args[0] != args[i]) {
+            return false;
+          }
+        }
+        return true;
+      }
+      case ">=":
+        return args[0] >= args[1];
+      case "<=":
+        return args[0] <= args[1];
+      case ">":
+        return args[0] > args[1];
+      case "<":
+        return args[0] < args[1];
+      case "&&":
+        return args.every(a => a);
+      case "||":
+        return args.some(a => a);
+      default:
+        throw Error("I don't know about function " + args[0]);
+    }
+  }
+}
+
+function expand(item, rules, left, right) {
+  const id = item[0];
+  const match = rules[id] || [];
+
+  // Pick a match?
+  for (let i = 0; i < match.length; i++) {
+    r = match[i];
+    if (r.variables.length != item.length + 1) {
+      continue;
+    }
+    if (!eval_expression(r.predicate)) {
+      continue;
+    }
+    if (r.left_context || r.right_context) {
+      throw Error("NO CONTEXTS YET");
+    }
+
+    const next = match.next;
+    for (let j = 1; j < next.length; j++) {}
+    throw Error("HAVEN'T WRITEN THIS YET");
+  }
+
+  return item;
+}
+
+const CH = 900;
+const CT = 0.4;
+const ST = 3.9;
+const full_pattern = {
+  ignore: ["f", "~", "H"],
+  initial: [["-", 90], ["F", 0, 0, CH], ["F", 4, 1, CH], ["F", 0, 0, CH]],
+  rules: {
+    F: [
+      {
+        variables: ["s", "t", "c"],
+        predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
+        next: [
+          ["F", ["*", 2, ["/", "s", 3]], 2, "c"],
+          ["f", 1],
+          ["F", ["/", "s", 3], 1, "c"],
+        ],
+      },
+      {
+        variables: ["s", "t", "c"],
+        predicate: ["&&", ["==", "t", 2], [">=", "s", 6]],
+        next: [
+          ["F", ["/", "s", 3], 2, "c"],
+          ["f", 1],
+          ["F", ["*", 2, ["/", "s", 3]], 1, "c"],
+        ],
+      },
+      {
+        variables: ["s", "t", "c"],
+        left_context: [["F", "h", "i", "k"]],
+        right_context: [["F", "o", "p", "r"]],
+        predicate: ["||", [">", "s", ST], [">", "c", CT]],
+        next: [
+          [
+            "F",
+            ["+", "s", 0.1],
+            "t",
+            ["+", "c", ["*", 0.25, ["+", "k", ["-", "r", ["*", 3, "c"]]]]],
+          ],
+        ],
+      },
+    ],
+    H: [
+      {
+        variables: ["s"],
+        predicate: ["<", "s", 3],
+        next: [["H", ["*", "s", 1.1]]],
+      },
+    ],
+  },
+};
+
 const { initial, angle, initial_steps, rules } = systems["stochastic"];
 
 function rewrite(state, rules) {
