@@ -96,6 +96,30 @@ describe("tryApplyRule", () => {
       it("can fail the predicate", () =>
         expect(tryApplyRule(rule, [2], [["b", [4]]], [])).toEqual(null));
     });
+
+    describe("where the context is longer", () => {
+      const rule = {
+        variables: ["x"],
+        left: [["a", ["y"]], ["b", ["z"]]],
+        predicate: [">", "x", "y"],
+        next: [["b", [["+", "x", "y", "z"]]]],
+      };
+
+      it("can work", () =>
+        expect(tryApplyRule(rule, [2], [["a", [1]], ["b", [2]]], [])).toEqual([
+          ["b", [5]],
+        ]));
+      it("can receive too small", () =>
+        expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual(null));
+      it("can work longer", () =>
+        expect(
+          tryApplyRule(rule, [2], [["x", [23]], ["a", [1]], ["b", [2]]], [])
+        ).toEqual([["b", [5]]]));
+      it("can fail the predicate", () =>
+        expect(tryApplyRule(rule, [2], [["a", [4]], ["b", [2]]], [])).toEqual(
+          null
+        ));
+    });
   });
 
   describe("with right context", () => {
@@ -128,6 +152,30 @@ describe("tryApplyRule", () => {
         ]));
       it("can fail the predicate", () =>
         expect(tryApplyRule(rule, [2], [], [["b", [4]]])).toEqual(null));
+    });
+
+    describe("where the context is longer", () => {
+      const rule = {
+        variables: ["x"],
+        right: [["b", ["y"]], ["c", ["z"]]],
+        predicate: [">", "x", "y"],
+        next: [["b", [["+", "x", "y", "z"]]]],
+      };
+
+      it("can work", () =>
+        expect(tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]]])).toEqual([
+          ["b", [5]],
+        ]));
+      it("can receive too small", () =>
+        expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual(null));
+      it("can work longer", () =>
+        expect(
+          tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]], ["zz", [412]]])
+        ).toEqual([["b", [5]]]));
+      it("can fail the predicate", () =>
+        expect(tryApplyRule(rule, [2], [], [["b", [4]], ["c", [2]]])).toEqual(
+          null
+        ));
     });
   });
 });

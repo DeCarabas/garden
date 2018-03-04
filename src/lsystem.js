@@ -119,7 +119,7 @@ type rule = {
 };
 
 function tryBindContext(rule: [string, string[]][], context: item[]) {
-  if (rule.length < context.length) {
+  if (rule.length > context.length) {
     return null;
   }
 
