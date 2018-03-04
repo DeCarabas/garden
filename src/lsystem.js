@@ -2,6 +2,9 @@
 // @format
 const invariant = require("invariant");
 
+// Parameterized l-systems require expressions; this here implements a little
+// S-expression kinda evaluator over numbers and booleans, which is enough for
+// us. These expressions get used in predicates and productions.
 type value = number | boolean;
 type expr = number | boolean | string | expr[];
 
@@ -77,11 +80,33 @@ function evalExpression(expr: expr, env: { [string]: value }): value {
   }
 }
 
+// A single item in our l-system is a tuple of an ID and a set of values.
 type item = [string, value[]];
+
+// A rule in our system can be configured many ways, to support a full on
+// context-sensitive, parameterized l-system.
 type rule = {
+  // These are the names for the values in the items. If an item does not
+  // have exactly one value for each variable, then the rule does not match.
   variables: string[],
-  predicate?: expr,
+
+  // This describes the required left-context of the rule. Each item in the
+  // context is a tuple `(ID, vars)` where `ID` is the ID of the item in the
+  // context and `vars` is a list of variable bindings for the values in the
+  // item. `vars` is treated just like `variables`, in that the arity must
+  // match exactly.
   left?: [string, string[]][],
+
+  // This is the predicate for the rule. If not present, the predicate always
+  // passes. The predicate is evaluated in an environment that has bindings
+  // for each of the variables described in `variables` and in the context.
+  predicate?: expr,
+
+  // This is the set of productions for the next items, if the rule applies.
+  // Each item in the array is a tuple (id, exprs) where `id` is the ID of
+  // the item to produce, and `exprs` are expressions for the values of the
+  // items. The expressions are evaluated in the same environment as the
+  // predicate.
   next: [string, expr[]][],
 };
 
