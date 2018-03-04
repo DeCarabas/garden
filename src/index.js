@@ -58,6 +58,17 @@ function parse_rules(rule_dictionary: {
 
 // Here are a gallery of systems that I'm playing with!
 const systems = {
+  // Hexagonal gosper curve (not right)
+  hex_gosper: {
+    initial: ["F", "F1"],
+    angle: toRadians(60),
+    initial_steps: 4,
+    rules: parse_rules({
+      F1: "F(F1)+F(Fr)++F(Fr)-F(F1)--F(F1)F(F1)-F(Fr)+",
+      Fr: "-F(F1)+F(Fr)F(Fr)++F(Fr)+F(F1)--F(F1)-F(Fr)",
+    }),
+  },
+
   // Two-dimensional hilbert curve
   hilbert2d: {
     initial: ["L"],
@@ -160,7 +171,7 @@ const systems = {
   },
 };
 
-const { initial, angle, initial_steps, rules } = systems["stochastic"];
+const { initial, angle, initial_steps, rules } = systems["hilbert3d"];
 
 function rewrite(state, rules) {
   let result = [];

@@ -90,12 +90,20 @@ type rule = {
   // have exactly one value for each variable, then the rule does not match.
   variables: string[],
 
-  // This describes the required left-context of the rule. Each item in the
-  // context is a tuple `(ID, vars)` where `ID` is the ID of the item in the
-  // context and `vars` is a list of variable bindings for the values in the
-  // item. `vars` is treated just like `variables`, in that the arity must
-  // match exactly.
+  // This describes the required left-context of the rule. The last item of
+  // `left` must match the last item of the left-context, the next-to-last item
+  // of `left` must match the next-to-last item of the context, and so on.
+  // Each item in the context is a tuple `(ID, vars)` where `ID` is the ID of
+  // the item in the context and `vars` is a list of variable bindings for the
+  // values in the  item. `vars` is treated just like `variables`, in that the
+  // arity of the rule must match the arity of the item exactly.
   left?: [string, string[]][],
+
+  // This describes the required right-context of the rule. This is
+  // interpreted the same as the left context, except the first item of
+  // `right` must match the first item of the right context, and the second
+  // must match the second, and so forth.
+  right?: [string, string[]][],
 
   // This is the predicate for the rule. If not present, the predicate always
   // passes. The predicate is evaluated in an environment that has bindings
@@ -110,40 +118,59 @@ type rule = {
   next: [string, expr[]][],
 };
 
+function tryBindContext(rule: [string, string[]][], context: item[]) {
+  if (rule.length < context.length) {
+    return null;
+  }
+
+  const bindings: { [string]: value } = {};
+  for (let i = 0; i < rule.length; i++) {
+    const [binding_id, binding_vars] = rule[i];
+    const [item_id, item_params] = context[i];
+
+    if (binding_id != item_id) {
+      return null;
+    }
+    if (binding_vars.length != item_params.length) {
+      return null;
+    }
+    for (let j = 0; j < binding_vars.length; j++) {
+      bindings[binding_vars[j]] = item_params[j];
+    }
+  }
+  return bindings;
+}
+
 function tryApplyRule(
   rule: rule,
   parameters: value[],
-  left: item[]
+  left: item[],
+  right: item[]
 ): ?(item[]) {
   if (rule.variables.length != parameters.length) {
     return null;
   }
 
-  const bindings: { [string]: value } = {};
+  let bindings: { [string]: value } = {};
   for (let i = 0; i < rule.variables.length; i++) {
     bindings[rule.variables[i]] = parameters[i];
   }
 
   if (rule.left) {
-    // Attempt to bind left context.
-    if (rule.left.length > left.length) {
+    const leftStart = left.length - rule.left.length;
+    const leftBindings = tryBindContext(rule.left, left.slice(leftStart));
+    if (leftBindings == null) {
       return null;
     }
-    const context_base = left.length - rule.left.length;
-    for (let i = 0; i < rule.left.length; i++) {
-      const [binding_id, binding_vars] = rule.left[i];
-      const [item_id, item_params] = left[context_base + i];
+    bindings = { ...bindings, ...leftBindings };
+  }
 
-      if (binding_id != item_id) {
-        return null;
-      }
-      if (binding_vars.length != item_params.length) {
-        return null;
-      }
-      for (let j = 0; j < binding_vars.length; j++) {
-        bindings[binding_vars[j]] = item_params[j];
-      }
+  if (rule.right) {
+    const rightBindings = tryBindContext(rule.right, right);
+    if (rightBindings == null) {
+      return null;
     }
+    bindings = { ...bindings, ...rightBindings };
   }
 
   if (rule.predicate && !evalExpression(rule.predicate, bindings)) {

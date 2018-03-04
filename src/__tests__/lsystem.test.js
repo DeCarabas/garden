@@ -51,7 +51,7 @@ describe("tryApplyRule", () => {
 
     function apply(name, parameters, result) {
       it(name, () =>
-        expect(tryApplyRule(rule, parameters, [])).toEqual(result)
+        expect(tryApplyRule(rule, parameters, [], [])).toEqual(result)
       );
     }
 
@@ -65,7 +65,7 @@ describe("tryApplyRule", () => {
     apply("fails predicates", [1, 3], null);
   });
 
-  describe("with context", () => {
+  describe("with left context", () => {
     describe("with context but without variables", () => {
       const rule = {
         variables: [],
@@ -74,11 +74,11 @@ describe("tryApplyRule", () => {
       };
 
       it("can match left context", () =>
-        expect(tryApplyRule(rule, [], [["b", []]])).toEqual([["b", []]]));
+        expect(tryApplyRule(rule, [], [["b", []]], [])).toEqual([["b", []]]));
       it("can fail to match left context by id", () =>
-        expect(tryApplyRule(rule, [], [["a", []]])).toEqual(null));
+        expect(tryApplyRule(rule, [], [["a", []]], [])).toEqual(null));
       it("can fail to match left context by arity", () =>
-        expect(tryApplyRule(rule, [], [["b", [7]]])).toEqual(null));
+        expect(tryApplyRule(rule, [], [["b", [7]]], [])).toEqual(null));
     });
 
     describe("where the context binds variables", () => {
@@ -90,9 +90,44 @@ describe("tryApplyRule", () => {
       };
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [["b", [1]]])).toEqual([["b", [3]]]));
+        expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual([
+          ["b", [3]],
+        ]));
       it("can fail the predicate", () =>
-        expect(tryApplyRule(rule, [2], [["b", [4]]])).toEqual(null));
+        expect(tryApplyRule(rule, [2], [["b", [4]]], [])).toEqual(null));
+    });
+  });
+
+  describe("with right context", () => {
+    describe("with context but without variables", () => {
+      const rule = {
+        variables: [],
+        right: [["b", []]],
+        next: [["b", []]],
+      };
+
+      it("can match right context", () =>
+        expect(tryApplyRule(rule, [], [], [["b", []]])).toEqual([["b", []]]));
+      it("can fail to match right context by id", () =>
+        expect(tryApplyRule(rule, [], [], [["a", []]])).toEqual(null));
+      it("can fail to match right context by arity", () =>
+        expect(tryApplyRule(rule, [], [], [["b", [7]]])).toEqual(null));
+    });
+
+    describe("where the context binds variables", () => {
+      const rule = {
+        variables: ["x"],
+        right: [["b", ["y"]]],
+        predicate: [">", "x", "y"],
+        next: [["b", [["+", "x", "y"]]]],
+      };
+
+      it("can work", () =>
+        expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual([
+          ["b", [3]],
+        ]));
+      it("can fail the predicate", () =>
+        expect(tryApplyRule(rule, [2], [], [["b", [4]]])).toEqual(null));
     });
   });
 });
