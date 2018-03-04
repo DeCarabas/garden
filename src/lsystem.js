@@ -77,30 +77,32 @@ function evalExpression(expr: expr, env: { [string]: value }): value {
   }
 }
 
-function expand(item, pattern, left, right) {
-  const id = item[0];
-  const match = pattern.rules[id] || [];
+type item = [string, value[]];
+type rule = {
+  variables: string[],
+  predicate?: expr,
+  next: [string, expr[]][],
+};
 
-  // Pick a match?
-  for (let i = 0; i < match.length; i++) {
-    const r = match[i];
-    if (r.variables.length != item.length + 1) {
-      continue;
-    }
-
-    if (!eval_expression(r.predicate, {})) {
-      continue;
-    }
-    if (r.left_context || r.right_context) {
-      throw Error("NO CONTEXTS YET");
-    }
-
-    const next = match.next;
-    for (let j = 1; j < next.length; j++) {}
-    throw Error("HAVEN'T WRITEN THIS YET");
+function tryApplyRule(rule: rule, parameters: value[]): ?(item[]) {
+  if (rule.variables.length != parameters.length) {
+    return null;
   }
 
-  return item;
+  const bindings: { [string]: value } = {};
+  for (let i = 0; i < rule.variables.length; i++) {
+    bindings[rule.variables[i]] = parameters[i];
+  }
+
+  // TODO: Context here! Need to look for and bind before predicate.
+  if (rule.predicate && !evalExpression(rule.predicate, bindings)) {
+    return null;
+  }
+
+  return rule.next.map(next => [
+    next[0],
+    next[1].map(e => evalExpression(e, bindings)),
+  ]);
 }
 
 const CH = 900;
@@ -108,25 +110,30 @@ const CT = 0.4;
 const ST = 3.9;
 const full_pattern = {
   ignore: ["f", "~", "H"],
-  initial: [["-", 90], ["F", 0, 0, CH], ["F", 4, 1, CH], ["F", 0, 0, CH]],
+  initial: [
+    ["-", [90]],
+    ["F", [0, 0, CH]],
+    ["F", [4, 1, CH]],
+    ["F", [0, 0, CH]],
+  ],
   rules: {
     F: [
       {
         variables: ["s", "t", "c"],
         predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
         next: [
-          ["F", ["*", 2, ["/", "s", 3]], 2, "c"],
-          ["f", 1],
-          ["F", ["/", "s", 3], 1, "c"],
+          ["F", [["*", 2, ["/", "s", 3]], 2, "c"]],
+          ["f", [1]],
+          ["F", [["/", "s", 3], 1, "c"]],
         ],
       },
       {
         variables: ["s", "t", "c"],
         predicate: ["&&", ["==", "t", 2], [">=", "s", 6]],
         next: [
-          ["F", ["/", "s", 3], 2, "c"],
-          ["f", 1],
-          ["F", ["*", 2, ["/", "s", 3]], 1, "c"],
+          ["F", [["/", "s", 3], 2, "c"]],
+          ["f", [1]],
+          ["F", [["*", 2, ["/", "s", 3]], 1, "c"]],
         ],
       },
       {
@@ -156,4 +163,5 @@ const full_pattern = {
 
 module.exports = {
   evalExpression,
+  tryApplyRule,
 };

@@ -1,6 +1,6 @@
 // @flow
 // @format
-const { evalExpression } = require("../lsystem");
+const { evalExpression, tryApplyRule } = require("../lsystem");
 const expect = require("expect");
 declare var describe: (string, () => void) => void;
 declare var it: (string, () => void) => void;
@@ -35,4 +35,29 @@ describe("evaluating expressions", () => {
         ).toBe(true));
     });
   });
+});
+
+describe("tryApplyRule", () => {
+  const rule = {
+    variables: ["s", "t", "c"],
+    predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
+    next: [
+      ["F", [["*", 2, ["/", "s", 3]], 2, "c"]],
+      ["f", [1]],
+      ["F", [["/", "s", 3], 1, "c"]],
+    ],
+  };
+
+  function apply(name, parameters, result) {
+    it(name, () => expect(tryApplyRule(rule, parameters)).toEqual(result));
+  }
+
+  apply(
+    "can succeed",
+    [6, 1, 35],
+    [["F", [4, 2, 35]], ["f", [1]], ["F", [2, 1, 35]]]
+  );
+  apply("fails with too few", [1, 2], null);
+  apply("fails with too many", [1, 2, 3, 4], null);
+  apply("fails predicates", [1, 3], null);
 });
