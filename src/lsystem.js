@@ -81,10 +81,15 @@ type item = [string, value[]];
 type rule = {
   variables: string[],
   predicate?: expr,
+  left?: [string, string[]][],
   next: [string, expr[]][],
 };
 
-function tryApplyRule(rule: rule, parameters: value[]): ?(item[]) {
+function tryApplyRule(
+  rule: rule,
+  parameters: value[],
+  left: item[]
+): ?(item[]) {
   if (rule.variables.length != parameters.length) {
     return null;
   }
@@ -94,7 +99,28 @@ function tryApplyRule(rule: rule, parameters: value[]): ?(item[]) {
     bindings[rule.variables[i]] = parameters[i];
   }
 
-  // TODO: Context here! Need to look for and bind before predicate.
+  if (rule.left) {
+    // Attempt to bind left context.
+    if (rule.left.length > left.length) {
+      return null;
+    }
+    const context_base = left.length - rule.left.length;
+    for (let i = 0; i < rule.left.length; i++) {
+      const [binding_id, binding_vars] = rule.left[i];
+      const [item_id, item_params] = left[context_base + i];
+
+      if (binding_id != item_id) {
+        return null;
+      }
+      if (binding_vars.length != item_params.length) {
+        return null;
+      }
+      for (let j = 0; j < binding_vars.length; j++) {
+        bindings[binding_vars[j]] = item_params[j];
+      }
+    }
+  }
+
   if (rule.predicate && !evalExpression(rule.predicate, bindings)) {
     return null;
   }
