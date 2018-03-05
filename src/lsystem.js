@@ -187,7 +187,7 @@ function* generateRightContexts(
   items: item[],
   start: number,
   max_length: number
-) {
+): Generator<item[], void, void> {
   const stack: number[] = [];
 
   const context: item[] = [];
