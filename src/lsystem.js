@@ -201,6 +201,9 @@ function* generateRightContexts(
         yield [...context];
         changed = false;
       }
+      if (stack.length == 0) {
+        break;
+      }
       context.length = stack.pop();
     } else if (context.length < max_length) {
       context.push(items[i]);

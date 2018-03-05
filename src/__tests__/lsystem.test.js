@@ -198,6 +198,8 @@ describe("generating right contexts", () => {
 
   const items = _is("abcd[ef[g]][hi][jklm]");
   it("stops once", () => expect(genAll(items, 0, 2)).toEqual([_is("ab")]));
+  it("stops at the local end", () =>
+    expect(genAll(items, 6, 3)).toEqual([_is("fg")]));
   it("doesn't repeat after pops", () =>
     expect(genAll(items, 3, 4)).toEqual([
       _is("defg"),
