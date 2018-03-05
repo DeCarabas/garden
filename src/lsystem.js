@@ -118,27 +118,76 @@ type rule = {
   next: [string, expr[]][],
 };
 
-function tryBindContext(rule: [string, string[]][], context: item[]) {
-  if (rule.length > context.length) {
+function bindRule(rule: [string, string[]], item: item) {
+  const [binding_id, binding_vars] = rule;
+  const [item_id, item_params] = item;
+
+  if (item_id != binding_id) {
+    return null;
+  }
+  if (binding_vars.length != item_params.length) {
     return null;
   }
 
-  const bindings: { [string]: value } = {};
-  for (let i = 0; i < rule.length; i++) {
-    const [binding_id, binding_vars] = rule[i];
-    const [item_id, item_params] = context[i];
+  const binding = {};
+  for (let j = 0; j < binding_vars.length; j++) {
+    binding[binding_vars[j]] = item_params[j];
+  }
+  return binding;
+}
 
-    if (binding_id != item_id) {
-      return null;
-    }
-    if (binding_vars.length != item_params.length) {
-      return null;
-    }
-    for (let j = 0; j < binding_vars.length; j++) {
-      bindings[binding_vars[j]] = item_params[j];
+function tryBindContext(rule: [string, string[]][], context: item[]) {
+  const stack = [];
+  const bindings = {};
+
+  let rule_pos = 0;
+  for (let i = 0; i < context.length; i++) {
+    const item = context[i];
+    if (item[0] == "[") {
+      stack.push(rule_pos);
+    } else if (item[0] == "]") {
+      // If there's no more stack then we've reached the logical end of the
+      // context, so we can just stop.
+      if (stack.length == 0) {
+        return null;
+      }
+
+      // Go back to where we used to be in the rule. Don't worry about
+      // clearing the old bindings; they'll just be overwritten by future
+      // successful binds, or not at all.
+      rule_pos = stack.pop();
+    } else if (rule_pos >= 0) {
+      const new_bindings = bindRule(rule[rule_pos], item);
+      if (new_bindings == null) {
+        // Binding didn't match. Set the flag to avoid doing any more
+        // comparisons.
+        rule_pos = -1;
+
+        // In addition, if there was No match *and* nothing to pop off the
+        // stack, then there is no way this rule will ever bind, so just
+        // return early.
+        if (stack.length == 0) {
+          return null;
+        }
+      } else {
+        // Binding matched; update the set of bindings....
+        for (let v in new_bindings) {
+          bindings[v] = new_bindings[v];
+        }
+
+        // ...and advance the rule. If this was the last rule to bind, then
+        // we're done, successfully!
+        rule_pos += 1;
+        if (rule_pos == rule.length) {
+          return bindings;
+        }
+      }
     }
   }
-  return bindings;
+
+  // If we get here then we walked off the end of the context without binding
+  // all of the rules, which can happen for sure.
+  return null;
 }
 
 function tryApplyRule(
@@ -181,51 +230,6 @@ function tryApplyRule(
     next[0],
     next[1].map(e => evalExpression(e, bindings)),
   ]);
-}
-
-function* generateRightContexts(
-  items: item[],
-  start: number,
-  max_length: number
-): Generator<item[], void, void> {
-  const stack: number[] = [];
-
-  const context: item[] = [];
-  let changed = false;
-
-  for (let i = start; i < items.length; i++) {
-    if (items[i][0] == "[") {
-      stack.push(context.length);
-    } else if (items[i][0] == "]") {
-      if (changed && context.length > 0) {
-        yield [...context];
-        changed = false;
-      }
-      if (stack.length == 0) {
-        break;
-      }
-      context.length = stack.pop();
-    } else if (context.length < max_length) {
-      context.push(items[i]);
-      if (context.length == max_length) {
-        yield [...context];
-        changed = false;
-      } else {
-        changed = true;
-      }
-    }
-
-    // If we've reached the maximum length and there's nothing on the stack
-    // then we can quit.
-    if (context.length == max_length && stack.length == 0) {
-      break;
-    }
-  }
-
-  if (changed && context.length > 0) {
-    yield [...context];
-    changed = false;
-  }
 }
 
 const CH = 900;
@@ -287,5 +291,4 @@ const full_pattern = {
 module.exports = {
   evalExpression,
   tryApplyRule,
-  generateRightContexts,
 };

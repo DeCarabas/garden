@@ -1,10 +1,6 @@
 // @flow
 // @format
-const {
-  evalExpression,
-  tryApplyRule,
-  generateRightContexts,
-} = require("../lsystem");
+const { evalExpression, tryApplyRule } = require("../lsystem");
 const expect = require("expect");
 declare var describe: (string, () => void) => void;
 declare var it: (string, () => void) => void;
@@ -40,6 +36,11 @@ describe("evaluating expressions", () => {
     });
   });
 });
+
+/** Split a string into individual items without values, for testing. */
+function _is(s) {
+  return s.split("").map(c => [c, []]);
+}
 
 describe("tryApplyRule", () => {
   describe("without context", () => {
@@ -142,6 +143,22 @@ describe("tryApplyRule", () => {
         expect(tryApplyRule(rule, [], [], [["b", [7]]])).toEqual(null));
     });
 
+    describe("with branching contexts", () => {
+      const success = [["b", []]];
+      const rule = {
+        variables: [],
+        right: [["b", []], ["c", []]],
+        next: success,
+      };
+
+      const apply = context => tryApplyRule(rule, [], [], _is(context));
+
+      it("can match nested", () => expect(apply("b[o]c")).toEqual(success));
+      it("ignores trailing", () => expect(apply("b[ca")).toEqual(success));
+      it("can fail nested", () => expect(apply("b[ac]")).toEqual(null));
+      it("respects boundaries", () => expect(apply("b]c")).toEqual(null));
+    });
+
     describe("where the context binds variables", () => {
       const rule = {
         variables: ["x"],
@@ -182,36 +199,4 @@ describe("tryApplyRule", () => {
         ));
     });
   });
-});
-
-describe("generating right contexts", () => {
-  function _is(s) {
-    return s.split("").map(c => [c, []]);
-  }
-  function genAll(items, start, max_length) {
-    const result = [];
-    for (var c of generateRightContexts(items, start, max_length)) {
-      result.push(c);
-    }
-    return result;
-  }
-
-  const items = _is("abcd[ef[g]][hi][jklm]");
-  it("stops once", () => expect(genAll(items, 0, 2)).toEqual([_is("ab")]));
-  it("stops at the local end", () =>
-    expect(genAll(items, 6, 3)).toEqual([_is("fg")]));
-  it("doesn't repeat after pops", () =>
-    expect(genAll(items, 3, 4)).toEqual([
-      _is("defg"),
-      _is("dhi"),
-      _is("djkl"),
-    ]));
-  it("does pop correctly", () =>
-    expect(genAll(items, 3, 3)).toEqual([_is("def"), _is("dhi"), _is("djk")]));
-  it("gets them all when huge", () =>
-    expect(genAll(items, 0, 1000)).toEqual([
-      _is("abcdefg"),
-      _is("abcdhi"),
-      _is("abcdjklm"),
-    ]));
 });
