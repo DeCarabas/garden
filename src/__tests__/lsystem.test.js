@@ -1,6 +1,10 @@
 // @flow
 // @format
-const { evalExpression, tryApplyRule } = require("../lsystem");
+const {
+  evalExpression,
+  tryApplyRule,
+  generateRightContexts,
+} = require("../lsystem");
 const expect = require("expect");
 declare var describe: (string, () => void) => void;
 declare var it: (string, () => void) => void;
@@ -178,4 +182,34 @@ describe("tryApplyRule", () => {
         ));
     });
   });
+});
+
+describe("generating right contexts", () => {
+  function _is(s) {
+    return s.split("").map(c => [c, []]);
+  }
+  function genAll(items, start, max_length) {
+    const result = [];
+    for (var c of generateRightContexts(items, start, max_length)) {
+      result.push(c);
+    }
+    return result;
+  }
+
+  const items = _is("abcd[ef[g]][hi][jklm]");
+  it("stops once", () => expect(genAll(items, 0, 2)).toEqual([_is("ab")]));
+  it("doesn't repeat after pops", () =>
+    expect(genAll(items, 3, 4)).toEqual([
+      _is("defg"),
+      _is("dhi"),
+      _is("djkl"),
+    ]));
+  it("does pop correctly", () =>
+    expect(genAll(items, 3, 3)).toEqual([_is("def"), _is("dhi"), _is("djk")]));
+  it("gets them all when huge", () =>
+    expect(genAll(items, 0, 1000)).toEqual([
+      _is("abcdefg"),
+      _is("abcdhi"),
+      _is("abcdjklm"),
+    ]));
 });

@@ -183,6 +183,48 @@ function tryApplyRule(
   ]);
 }
 
+function* generateRightContexts(
+  items: item[],
+  start: number,
+  max_length: number
+) {
+  const stack: number[] = [];
+
+  const context: item[] = [];
+  let changed = false;
+
+  for (let i = start; i < items.length; i++) {
+    if (items[i][0] == "[") {
+      stack.push(context.length);
+    } else if (items[i][0] == "]") {
+      if (changed && context.length > 0) {
+        yield [...context];
+        changed = false;
+      }
+      context.length = stack.pop();
+    } else if (context.length < max_length) {
+      context.push(items[i]);
+      if (context.length == max_length) {
+        yield [...context];
+        changed = false;
+      } else {
+        changed = true;
+      }
+    }
+
+    // If we've reached the maximum length and there's nothing on the stack
+    // then we can quit.
+    if (context.length == max_length && stack.length == 0) {
+      break;
+    }
+  }
+
+  if (changed && context.length > 0) {
+    yield [...context];
+    changed = false;
+  }
+}
+
 const CH = 900;
 const CT = 0.4;
 const ST = 3.9;
@@ -242,4 +284,5 @@ const full_pattern = {
 module.exports = {
   evalExpression,
   tryApplyRule,
+  generateRightContexts,
 };
