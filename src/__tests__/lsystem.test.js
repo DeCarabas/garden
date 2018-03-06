@@ -160,6 +160,24 @@ describe("tryApplyRule", () => {
       it("respects boundaries", () => expect(apply("b]c")).toEqual(null));
     });
 
+    describe("with ignores", () => {
+      const success = [["b", []]];
+      const rule = {
+        variables: [],
+        right: [["b", []], ["c", []]],
+        ignore: "f~",
+        next: success,
+      };
+
+      const apply = context => tryApplyRule(rule, [], [], _is(context));
+
+      it("can ignore (1)", () => expect(apply("bfc")).toEqual(success));
+      it("can ignore (2)", () => expect(apply("b~c")).toEqual(success));
+      it("can ignore (3)", () => expect(apply("bf~c")).toEqual(success));
+      it("can ignore nest (1)", () => expect(apply("b[f]c")).toEqual(success));
+      it("can ignore nest (2)", () => expect(apply("b[fc]")).toEqual(success));
+    });
+
     describe("where the context binds variables", () => {
       const rule = {
         variables: ["x"],

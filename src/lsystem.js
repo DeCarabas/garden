@@ -105,6 +105,10 @@ type rule = {
   // must match the second, and so forth.
   right?: [string, string[]][],
 
+  // This describes the list of characters to ignore when matching contexts.
+  // It's useful for ignoring elements that are used only for rendering.
+  ignore?: string,
+
   // This is the predicate for the rule. If not present, the predicate always
   // passes. The predicate is evaluated in an environment that has bindings
   // for each of the variables described in `variables` and in the context.
@@ -136,13 +140,21 @@ function bindRule(rule: [string, string[]], item: item) {
   return binding;
 }
 
-function tryBindContext(rule: [string, string[]][], context: item[]) {
+function tryBindContext(
+  rule: [string, string[]][],
+  context: item[],
+  ignore: string
+) {
   const stack = [];
   const bindings = {};
 
   let rule_pos = 0;
   for (let i = 0; i < context.length; i++) {
     const item = context[i];
+    if (ignore.indexOf(item[0]) !== -1) {
+      continue;
+    }
+
     if (item[0] == "[") {
       stack.push(rule_pos);
     } else if (item[0] == "]") {
@@ -160,7 +172,8 @@ function tryBindContext(rule: [string, string[]][], context: item[]) {
       const new_bindings = bindRule(rule[rule_pos], item);
       if (new_bindings == null) {
         // Binding didn't match. Set the flag to avoid doing any more
-        // comparisons.
+        // comparisons. (The flag will be reset if we ever pop the stack,
+        // obviously.)
         rule_pos = -1;
 
         // In addition, if there was No match *and* nothing to pop off the
@@ -205,9 +218,10 @@ function tryApplyRule(
     bindings[rule.variables[i]] = parameters[i];
   }
 
+  const ignore = rule.ignore || "";
   if (rule.left) {
-    const leftStart = left.length - rule.left.length;
-    const leftBindings = tryBindContext(rule.left, left.slice(leftStart));
+    const ls = left.length - rule.left.length;
+    const leftBindings = tryBindContext(rule.left, left.slice(ls), ignore);
     if (leftBindings == null) {
       return null;
     }
@@ -215,7 +229,7 @@ function tryApplyRule(
   }
 
   if (rule.right) {
-    const rightBindings = tryBindContext(rule.right, right);
+    const rightBindings = tryBindContext(rule.right, right, ignore);
     if (rightBindings == null) {
       return null;
     }
