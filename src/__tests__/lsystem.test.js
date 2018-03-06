@@ -156,6 +156,7 @@ describe("tryApplyRule", () => {
       it("can match nested", () => expect(apply("b[o]c")).toEqual(success));
       it("ignores trailing", () => expect(apply("b[ca")).toEqual(success));
       it("can fail nested", () => expect(apply("b[ac]")).toEqual(null));
+      it("can skip and match", () => expect(apply("b[ac]c")).toEqual(success));
       it("respects boundaries", () => expect(apply("b]c")).toEqual(null));
     });
 
