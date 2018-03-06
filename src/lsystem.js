@@ -83,46 +83,16 @@ function evalExpression(expr: expr, env: { [string]: value }): value {
 // A single item in our l-system is a tuple of an ID and a set of values.
 type item = [string, value[]];
 
-// A rule in our system can be configured many ways, to support a full on
-// context-sensitive, parameterized l-system.
-type rule = {
-  // These are the names for the values in the items. If an item does not
-  // have exactly one value for each variable, then the rule does not match.
-  variables: string[],
+// Context rules are a tuple of an ID and a list of variables. Such a rule
+// "matches" against an item if the ID of the rule matches the ID of the
+// item, and if the number of variables in the rule matches the number of
+// values in the item.
+type context_rule = [string, string[]];
 
-  // This describes the required left-context of the rule. The last item of
-  // `left` must match the last item of the left-context, the next-to-last item
-  // of `left` must match the next-to-last item of the context, and so on.
-  // Each item in the context is a tuple `(ID, vars)` where `ID` is the ID of
-  // the item in the context and `vars` is a list of variable bindings for the
-  // values in the  item. `vars` is treated just like `variables`, in that the
-  // arity of the rule must match the arity of the item exactly.
-  left?: [string, string[]][],
-
-  // This describes the required right-context of the rule. This is
-  // interpreted the same as the left context, except the first item of
-  // `right` must match the first item of the right context, and the second
-  // must match the second, and so forth.
-  right?: [string, string[]][],
-
-  // This describes the list of characters to ignore when matching contexts.
-  // It's useful for ignoring elements that are used only for rendering.
-  ignore?: string,
-
-  // This is the predicate for the rule. If not present, the predicate always
-  // passes. The predicate is evaluated in an environment that has bindings
-  // for each of the variables described in `variables` and in the context.
-  predicate?: expr,
-
-  // This is the set of productions for the next items, if the rule applies.
-  // Each item in the array is a tuple (id, exprs) where `id` is the ID of
-  // the item to produce, and `exprs` are expressions for the values of the
-  // items. The expressions are evaluated in the same environment as the
-  // predicate.
-  next: [string, expr[]][],
-};
-
-function bindRule(rule: [string, string[]], item: item) {
+// Attempt to bind the specified context rule against the specified "item".
+// Returns null if the rule can't bind the item, otherwise returns an object
+// that maps the variable names from the rule to the values they bind.
+function tryBindContextRule(rule: context_rule, item: item) {
   const [binding_id, binding_vars] = rule;
   const [item_id, item_params] = item;
 
@@ -140,10 +110,50 @@ function bindRule(rule: [string, string[]], item: item) {
   return binding;
 }
 
+// A rule in our system can be configured many ways, to support a full on
+// context-sensitive, parameterized l-system.
+type rule = {
+  // These are the names for the values in the items. If an item does not
+  // have exactly one value for each variable, then the rule does not match.
+  variables: string[],
+
+  // This describes the required left-context of the rule. The last item of
+  // `left` must match the last item of the left-context, the next-to-last item
+  // of `left` must match the next-to-last item of the context, and so on.
+  left?: context_rule[],
+
+  // This describes the required right-context of the rule. This is
+  // interpreted the same as the left context, except the first item of
+  // `right` must match the first item of the right context, and the second
+  // must match the second, and so forth. In addition, the system treats the
+  // branching directives '[' and ']' specially, pushing and popping from a
+  // stack to backtrack as necessary while attempting to bind the rule.
+  right?: context_rule[],
+
+  // This describes the list of items to ignore when matching contexts.
+  // It's useful for ignoring elements that are used only for rendering.
+  ignore?: string[],
+
+  // This is the predicate for the rule. If not present, the predicate always
+  // passes. The predicate is evaluated in an environment that has bindings
+  // for each of the variables described in `variables` and in the context.
+  predicate?: expr,
+
+  // This is the set of productions for the next items, if the rule applies.
+  // Each item in the array is a tuple (id, exprs) where `id` is the ID of
+  // the item to produce, and `exprs` are expressions for the values of the
+  // items. The expressions are evaluated in the same environment as the
+  // predicate.
+  next: [string, expr[]][],
+};
+
+// Attempt to bind the given rules against the given context, while ignoring
+// items with the IDs in `ignore`. If binding fails, returns null, otherwise
+// returns an object with one entry for each variable bound by the context.
 function tryBindContext(
-  rule: [string, string[]][],
+  rules: context_rule[],
   context: item[],
-  ignore: string
+  ignore: string[]
 ) {
   const stack = [];
   const bindings = {};
@@ -169,7 +179,7 @@ function tryBindContext(
       // successful binds, or not at all.
       rule_pos = stack.pop();
     } else if (rule_pos >= 0) {
-      const new_bindings = bindRule(rule[rule_pos], item);
+      const new_bindings = tryBindContextRule(rules[rule_pos], item);
       if (new_bindings == null) {
         // Binding didn't match. Set the flag to avoid doing any more
         // comparisons. (The flag will be reset if we ever pop the stack,
@@ -191,7 +201,7 @@ function tryBindContext(
         // ...and advance the rule. If this was the last rule to bind, then
         // we're done, successfully!
         rule_pos += 1;
-        if (rule_pos == rule.length) {
+        if (rule_pos == rules.length) {
           return bindings;
         }
       }
@@ -203,6 +213,12 @@ function tryBindContext(
   return null;
 }
 
+// Attempt to apply a rule, given the parameters and the left and right contexts.
+// Applying a rules can fail for a lot of different reasons, including a failure
+// to match either the left or right context, or failure to match the predicate,
+// or failure to have the right number of parameters. If the rule applies
+// successfully, this function returns an array items to replace the item being
+// applied. Otherwise, this function returns null.
 function tryApplyRule(
   rule: rule,
   parameters: value[],
@@ -218,7 +234,7 @@ function tryApplyRule(
     bindings[rule.variables[i]] = parameters[i];
   }
 
-  const ignore = rule.ignore || "";
+  const ignore = rule.ignore || [];
   if (rule.left) {
     const ls = left.length - rule.left.length;
     const leftBindings = tryBindContext(rule.left, left.slice(ls), ignore);

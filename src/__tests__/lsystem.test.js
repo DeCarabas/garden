@@ -165,7 +165,7 @@ describe("tryApplyRule", () => {
       const rule = {
         variables: [],
         right: [["b", []], ["c", []]],
-        ignore: "f~",
+        ignore: "f~".split(""),
         next: success,
       };
 
