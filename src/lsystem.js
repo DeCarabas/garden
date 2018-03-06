@@ -7,8 +7,9 @@ const invariant = require("invariant");
 // us. These expressions get used in predicates and productions.
 type value = number | boolean;
 type expr = number | boolean | string | expr[];
+type var_id = string;
 
-function evalExpression(expr: expr, env: { [string]: value }): value {
+function evalExpression(expr: expr, env: { [var_id]: value }): value {
   if (typeof expr == "string") {
     return env[expr];
   } else if (typeof expr == "number" || typeof expr == "boolean") {
@@ -80,14 +81,16 @@ function evalExpression(expr: expr, env: { [string]: value }): value {
   }
 }
 
+type item_id = string;
+
 // A single item in our l-system is a tuple of an ID and a set of values.
-type item = [string, value[]];
+type item = [item_id, value[]];
 
 // Context rules are a tuple of an ID and a list of variables. Such a rule
 // "matches" against an item if the ID of the rule matches the ID of the
 // item, and if the number of variables in the rule matches the number of
 // values in the item.
-type context_rule = [string, string[]];
+type context_rule = [item_id, var_id[]];
 
 // Attempt to bind the specified context rule against the specified "item".
 // Returns null if the rule can't bind the item, otherwise returns an object
@@ -110,17 +113,22 @@ function tryBindContextRule(rule: context_rule, item: item) {
   return binding;
 }
 
+// An item_expr describes how to make a new item in some environment. The first
+// element in the tuple is the ID of the new item, the second is the set of
+// expressions that compute the values to go along with the item.
+type item_expr = [item_id, expr[]];
+
 // A rule in our system can be configured many ways, to support a full on
 // context-sensitive, parameterized l-system.
 type rule = {
   // These are the names for the values in the items. If an item does not
   // have exactly one value for each variable, then the rule does not match.
-  variables: string[],
+  variables: var_id[],
 
   // This describes the required left-context of the rule. The last item of
   // `left` must match the last item of the left-context, the next-to-last item
   // of `left` must match the next-to-last item of the context, and so on.
-  left?: context_rule[],
+  left: context_rule[],
 
   // This describes the required right-context of the rule. This is
   // interpreted the same as the left context, except the first item of
@@ -128,24 +136,49 @@ type rule = {
   // must match the second, and so forth. In addition, the system treats the
   // branching directives '[' and ']' specially, pushing and popping from a
   // stack to backtrack as necessary while attempting to bind the rule.
-  right?: context_rule[],
+  right: context_rule[],
 
   // This describes the list of items to ignore when matching contexts.
   // It's useful for ignoring elements that are used only for rendering.
-  ignore?: string[],
+  ignore: item_id[],
 
   // This is the predicate for the rule. If not present, the predicate always
   // passes. The predicate is evaluated in an environment that has bindings
   // for each of the variables described in `variables` and in the context.
-  predicate?: expr,
+  predicate: expr,
 
   // This is the set of productions for the next items, if the rule applies.
   // Each item in the array is a tuple (id, exprs) where `id` is the ID of
   // the item to produce, and `exprs` are expressions for the values of the
   // items. The expressions are evaluated in the same environment as the
   // predicate.
-  next: [string, expr[]][],
+  next: item_expr[],
 };
+
+function makeRule({
+  variables,
+  left,
+  right,
+  ignore,
+  predicate,
+  next,
+}: {
+  variables?: var_id[],
+  left?: context_rule[],
+  right?: context_rule[],
+  ignore?: item_id[],
+  predicate?: expr,
+  next: item_expr[],
+}): rule {
+  return {
+    variables: variables || [],
+    left: left || [],
+    right: right || [],
+    ignore: ignore || [],
+    predicate: predicate || true,
+    next: next,
+  };
+}
 
 // Attempt to bind the given rules against the given context, while ignoring
 // items with the IDs in `ignore`. If binding fails, returns null, otherwise
@@ -153,7 +186,7 @@ type rule = {
 function tryBindContext(
   rules: context_rule[],
   context: item[],
-  ignore: string[]
+  ignore: item_id[]
 ) {
   const stack = [];
   const bindings = {};
@@ -235,7 +268,7 @@ function tryApplyRule(
   }
 
   const ignore = rule.ignore || [];
-  if (rule.left) {
+  if (rule.left.length > 0) {
     const ls = left.length - rule.left.length;
     const leftBindings = tryBindContext(rule.left, left.slice(ls), ignore);
     if (leftBindings == null) {
@@ -244,7 +277,7 @@ function tryApplyRule(
     bindings = { ...bindings, ...leftBindings };
   }
 
-  if (rule.right) {
+  if (rule.right.length > 0) {
     const rightBindings = tryBindContext(rule.right, right, ignore);
     if (rightBindings == null) {
       return null;
@@ -252,7 +285,7 @@ function tryApplyRule(
     bindings = { ...bindings, ...rightBindings };
   }
 
-  if (rule.predicate && !evalExpression(rule.predicate, bindings)) {
+  if (!evalExpression(rule.predicate, bindings)) {
     return null;
   }
 
@@ -262,63 +295,123 @@ function tryApplyRule(
   ]);
 }
 
+type rule_set = { [item_id]: rule[] };
+
+function makeRuleSet({
+  ignore,
+  rules,
+}: {
+  ignore?: item_id[],
+  rules: { [item_id]: { ignore?: item_id[], next: item_expr[] }[] },
+}): rule_set {
+  const result = {};
+  for (let key in rules) {
+    const existing = rules[key];
+    result[key] = existing.map(r =>
+      makeRule({ ...r, ignore: r.ignore || ignore })
+    );
+  }
+  return result;
+}
+
+function nextState(state: item[], rules: rule_set): item[] {
+  const left = [];
+  const stack = [];
+  const result = [];
+  for (let i = 0; i < state.length; i++) {
+    const [current_id, current_vals] = state[i];
+    const rs = rules[current_id] || [];
+
+    let matched = false;
+    const right = state.slice(i + 1);
+    for (let j = 0; j < rs.length; j++) {
+      const new_items = tryApplyRule(rs[j], current_vals, left, right);
+      if (new_items != null) {
+        result.push(...new_items);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      result.push(state[i]);
+    }
+
+    if (current_id == "[") {
+      stack.push(left.length);
+    } else if (current_id == "]") {
+      left.length = stack.pop();
+    } else {
+      left.push(state[i]);
+    }
+  }
+  return result;
+}
+
 const CH = 900;
 const CT = 0.4;
 const ST = 3.9;
 const full_pattern = {
-  ignore: ["f", "~", "H"],
   initial: [
     ["-", [90]],
     ["F", [0, 0, CH]],
     ["F", [4, 1, CH]],
     ["F", [0, 0, CH]],
   ],
-  rules: {
-    F: [
-      {
-        variables: ["s", "t", "c"],
-        predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
-        next: [
-          ["F", [["*", 2, ["/", "s", 3]], 2, "c"]],
-          ["f", [1]],
-          ["F", [["/", "s", 3], 1, "c"]],
-        ],
-      },
-      {
-        variables: ["s", "t", "c"],
-        predicate: ["&&", ["==", "t", 2], [">=", "s", 6]],
-        next: [
-          ["F", [["/", "s", 3], 2, "c"]],
-          ["f", [1]],
-          ["F", [["*", 2, ["/", "s", 3]], 1, "c"]],
-        ],
-      },
-      {
-        variables: ["s", "t", "c"],
-        left_context: [["F", "h", "i", "k"]],
-        right_context: [["F", "o", "p", "r"]],
-        predicate: ["||", [">", "s", ST], [">", "c", CT]],
-        next: [
-          [
-            "F",
-            ["+", "s", 0.1],
-            "t",
-            ["+", "c", ["*", 0.25, ["+", "k", ["-", "r", ["*", 3, "c"]]]]],
+  rules: makeRuleSet({
+    ignore: ["f", "~", "H"],
+    rules: {
+      F: [
+        {
+          variables: ["s", "t", "c"],
+          predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
+          next: [
+            ["F", [["*", 2, ["/", "s", 3]], 2, "c"]],
+            ["f", [1]],
+            ["F", [["/", "s", 3], 1, "c"]],
           ],
-        ],
-      },
-    ],
-    H: [
-      {
-        variables: ["s"],
-        predicate: ["<", "s", 3],
-        next: [["H", ["*", "s", 1.1]]],
-      },
-    ],
-  },
+        },
+        {
+          variables: ["s", "t", "c"],
+          predicate: ["&&", ["==", "t", 2], [">=", "s", 6]],
+          next: [
+            ["F", [["/", "s", 3], 2, "c"]],
+            ["f", [1]],
+            ["F", [["*", 2, ["/", "s", 3]], 1, "c"]],
+          ],
+        },
+        {
+          variables: ["s", "t", "c"],
+          left_context: [["F", "h", "i", "k"]],
+          right_context: [["F", "o", "p", "r"]],
+          predicate: ["||", [">", "s", ST], [">", "c", CT]],
+          next: [
+            [
+              "F",
+              [
+                ["+", "s", 0.1],
+                "t",
+                ["+", "c", ["*", 0.25, ["+", "k", ["-", "r", ["*", 3, "c"]]]]],
+              ],
+            ],
+          ],
+        },
+      ],
+      H: [
+        {
+          variables: ["s"],
+          predicate: ["<", "s", 3],
+          next: [["H", ["*", "s", 1.1]]],
+        },
+      ],
+    },
+  }),
 };
 
 module.exports = {
   evalExpression,
+  makeRule,
   tryApplyRule,
+  makeRuleSet,
+  nextState,
 };

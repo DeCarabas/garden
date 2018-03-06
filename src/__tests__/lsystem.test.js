@@ -1,11 +1,17 @@
 // @flow
 // @format
-const { evalExpression, tryApplyRule } = require("../lsystem");
+const {
+  evalExpression,
+  makeRule,
+  makeRuleSet,
+  nextState,
+  tryApplyRule,
+} = require("../lsystem");
 const expect = require("expect");
 declare var describe: (string, () => void) => void;
 declare var it: (string, () => void) => void;
 
-describe("evaluating expressions", () => {
+describe("evalExpression", () => {
   it("evals numbers", () => expect(evalExpression(5, {})).toBe(5));
   it("evals booleans", () => expect(evalExpression(true, {})).toBe(true));
   it("evals variables", () => expect(evalExpression("s", { s: 54 })).toBe(54));
@@ -44,7 +50,7 @@ function _is(s) {
 
 describe("tryApplyRule", () => {
   describe("without context", () => {
-    const rule = {
+    const rule = makeRule({
       variables: ["s", "t", "c"],
       predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
       next: [
@@ -52,7 +58,7 @@ describe("tryApplyRule", () => {
         ["f", [1]],
         ["F", [["/", "s", 3], 1, "c"]],
       ],
-    };
+    });
 
     function apply(name, parameters, result) {
       it(name, () =>
@@ -72,11 +78,11 @@ describe("tryApplyRule", () => {
 
   describe("with left context", () => {
     describe("with context but without variables", () => {
-      const rule = {
+      const rule = makeRule({
         variables: [],
         left: [["b", []]],
         next: [["b", []]],
-      };
+      });
 
       it("can match left context", () =>
         expect(tryApplyRule(rule, [], [["b", []]], [])).toEqual([["b", []]]));
@@ -87,12 +93,12 @@ describe("tryApplyRule", () => {
     });
 
     describe("where the context binds variables", () => {
-      const rule = {
+      const rule = makeRule({
         variables: ["x"],
         left: [["b", ["y"]]],
         predicate: [">", "x", "y"],
         next: [["b", [["+", "x", "y"]]]],
-      };
+      });
 
       it("can work", () =>
         expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual([
@@ -103,12 +109,12 @@ describe("tryApplyRule", () => {
     });
 
     describe("where the context is longer", () => {
-      const rule = {
+      const rule = makeRule({
         variables: ["x"],
         left: [["a", ["y"]], ["b", ["z"]]],
         predicate: [">", "x", "y"],
         next: [["b", [["+", "x", "y", "z"]]]],
-      };
+      });
 
       it("can work", () =>
         expect(tryApplyRule(rule, [2], [["a", [1]], ["b", [2]]], [])).toEqual([
@@ -129,11 +135,11 @@ describe("tryApplyRule", () => {
 
   describe("with right context", () => {
     describe("with context but without variables", () => {
-      const rule = {
+      const rule = makeRule({
         variables: [],
         right: [["b", []]],
         next: [["b", []]],
-      };
+      });
 
       it("can match right context", () =>
         expect(tryApplyRule(rule, [], [], [["b", []]])).toEqual([["b", []]]));
@@ -145,11 +151,11 @@ describe("tryApplyRule", () => {
 
     describe("with branching contexts", () => {
       const success = [["b", []]];
-      const rule = {
+      const rule = makeRule({
         variables: [],
         right: [["b", []], ["c", []]],
         next: success,
-      };
+      });
 
       const apply = context => tryApplyRule(rule, [], [], _is(context));
 
@@ -162,12 +168,12 @@ describe("tryApplyRule", () => {
 
     describe("with ignores", () => {
       const success = [["b", []]];
-      const rule = {
+      const rule = makeRule({
         variables: [],
         right: [["b", []], ["c", []]],
         ignore: "f~".split(""),
         next: success,
-      };
+      });
 
       const apply = context => tryApplyRule(rule, [], [], _is(context));
 
@@ -179,12 +185,12 @@ describe("tryApplyRule", () => {
     });
 
     describe("where the context binds variables", () => {
-      const rule = {
+      const rule = makeRule({
         variables: ["x"],
         right: [["b", ["y"]]],
         predicate: [">", "x", "y"],
         next: [["b", [["+", "x", "y"]]]],
-      };
+      });
 
       it("can work", () =>
         expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual([
@@ -195,12 +201,12 @@ describe("tryApplyRule", () => {
     });
 
     describe("where the context is longer", () => {
-      const rule = {
+      const rule = makeRule({
         variables: ["x"],
         right: [["b", ["y"]], ["c", ["z"]]],
         predicate: [">", "x", "y"],
         next: [["b", [["+", "x", "y", "z"]]]],
-      };
+      });
 
       it("can work", () =>
         expect(tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]]])).toEqual([
@@ -218,4 +224,36 @@ describe("tryApplyRule", () => {
         ));
     });
   });
+});
+
+describe("nextState", () => {
+  const states = [
+    _is("baaaaaaaaa"),
+    _is("abaaaaaaaa"),
+    _is("aabaaaaaaa"),
+    _is("aaabaaaaaa"),
+    _is("aaaabaaaaa"),
+  ];
+  const rules = makeRuleSet({
+    rules: {
+      a: [
+        {
+          left: [["b", []]],
+          next: [["b", []]],
+        },
+      ],
+      b: [
+        {
+          next: [["a", []]],
+        },
+      ],
+    },
+  });
+
+  for (let i = 0; i < states.length - 1; i++) {
+    const index = i;
+    it("evolves " + i.toString() + " -> " + (i + 1).toString(), () =>
+      expect(nextState(states[index], rules)).toEqual(states[index + 1])
+    );
+  }
 });
