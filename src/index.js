@@ -1,8 +1,39 @@
 // @flow
 // @format
 const { mat4, vec3 } = require("gl-matrix");
+const { makeRuleSet, rewrite } = require("./lsystem");
+
+import type { item_expr } from "./lsystem";
 
 type production = {| probability: number, value: string[] |};
+
+function parseItemExpr(rule_value: string): item_expr[] {
+  // Symbols stand alone, whitespace is ignored, everything between
+  // parenthesis are treated as a single symbol.
+  const symbols = [];
+  let i = 0;
+  while (i < rule_value.length) {
+    switch (rule_value[i]) {
+      case " ":
+        break;
+      case "(":
+        {
+          i++;
+          const start = i;
+          while (i < rule_value.length && rule_value[i] != ")") {
+            i++;
+          }
+          symbols.push([rule_value.substr(start, i - start), []]);
+        }
+        break;
+      default:
+        symbols.push([rule_value[i], []]);
+        break;
+    }
+    i++;
+  }
+  return symbols;
+}
 
 // parse a rules dictionary into a more usable form.
 function parse_rules(rule_dictionary: {
@@ -82,14 +113,16 @@ const systems = {
 
   // Three-dimensional hilbert curve
   hilbert3d: {
-    initial: ["A"],
+    initial: [["A", []]],
     angle: toRadians(90),
     initial_steps: 2,
-    rules: parse_rules({
-      A: "B-F+CFC+F-D&F^D-F+&&CFC+F+B//",
-      B: "A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//",
-      C: "|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//",
-      D: "|CFB-F+B|FA&F^A&&FB-F+B|FC//",
+    rules: makeRuleSet({
+      rules: {
+        A: [{ next: parseItemExpr("B-F+CFC+F-D&F^D-F+&&CFC+F+B//") }],
+        B: [{ next: parseItemExpr("A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//") }],
+        C: [{ next: parseItemExpr("|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//") }],
+        D: [{ next: parseItemExpr("|CFB-F+B|FA&F^A&&FB-F+B|FC//") }],
+      },
     }),
   },
 
@@ -123,18 +156,39 @@ const systems = {
     initial: ["plant"],
     angle: toRadians(18),
     initial_steps: 5,
-    rules: parse_rules({
-      plant:
-        "(internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)" +
-        "[ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)",
-      internode: "F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)",
-      seg: "(seg) F (seg)",
-      leaf: "[' { + f - ff - f + | + f - ff - f } ]",
-      flower:
-        "[& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) //// (wedge)" +
-        "//// (wedge) ]",
-      pedicel: "FF",
-      wedge: "['^F][{&&&&-f+f|-f+f}]",
+    rules: makeRuleSet({
+      rules: {
+        plant: [
+          {
+            next: parseItemExpr(`
+              (internode) + [(plant) + (flower)] - - // [ - - (leaf)]
+              (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)
+              (flower)
+            `),
+          },
+        ],
+        internode: [
+          {
+            next: parseItemExpr(
+              `F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)`
+            ),
+          },
+        ],
+        seg: [{ next: parseItemExpr("(seg) F (seg)") }],
+        leaf: [
+          { next: parseItemExpr("[' { + f - ff - f + | + f - ff - f } ]") },
+        ],
+        flower: [
+          {
+            next: parseItemExpr(`
+              [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////
+              (wedge) //// (wedge) ]
+            `),
+          },
+        ],
+        pedicel: [{ next: parseItemExpr("FF") }],
+        wedge: [{ next: parseItemExpr("['^F][{&&&&-f+f|-f+f}]") }],
+      },
     }),
   },
 
@@ -172,29 +226,6 @@ const systems = {
 };
 
 const { initial, angle, initial_steps, rules } = systems["hilbert3d"];
-
-function rewrite(state, rules) {
-  let result = [];
-  for (let i = 0; i < state.length; i++) {
-    const current = state[i];
-    const replacements = rules[current] || [];
-    if (replacements.length == 0) {
-      result.push(current);
-    } else if (replacements.length == 1) {
-      result.push(...replacements[0].value);
-    } else {
-      let target = Math.random();
-      const replacement =
-        replacements.find(p => {
-          target -= p.probability;
-          return target < 0;
-        }) || replacements[replacements.length - 1];
-
-      result.push(...replacement.value);
-    }
-  }
-  return result;
-}
 
 let state, DEBUG_RENDER_LIMIT;
 
@@ -285,7 +316,7 @@ function render(state, context, config) {
   vec3.scale(head_vector, head_vector, step_length);
 
   for (let i = 0; i < state.length && i < DEBUG_RENDER_LIMIT; i++) {
-    const current = state[i];
+    const [current, _vals] = state[i];
     if (current == "F") {
       // Draw a "line" (always draws along -Z, which is also head.)
       context.line(current_matrix, step_length);

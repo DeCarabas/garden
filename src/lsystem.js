@@ -116,7 +116,7 @@ function tryBindContextRule(rule: context_rule, item: item) {
 // An item_expr describes how to make a new item in some environment. The first
 // element in the tuple is the ID of the new item, the second is the set of
 // expressions that compute the values to go along with the item.
-type item_expr = [item_id, expr[]];
+export type item_expr = [item_id, expr[]];
 
 // A rule in our system can be configured many ways, to support a full on
 // context-sensitive, parameterized l-system.
@@ -283,7 +283,9 @@ function tryBindRule(
     if (leftBindings == null) {
       return null;
     }
-    bindings = { ...bindings, ...leftBindings };
+    for (let v in leftBindings) {
+      bindings[v] = leftBindings[v];
+    }
   }
 
   if (rule.right.length > 0) {
@@ -291,7 +293,9 @@ function tryBindRule(
     if (rightBindings == null) {
       return null;
     }
-    bindings = { ...bindings, ...rightBindings };
+    for (let v in rightBindings) {
+      bindings[v] = rightBindings[v];
+    }
   }
 
   if (!evalExpression(rule.predicate, bindings)) {
@@ -313,9 +317,9 @@ function makeRuleSet({
   const result = {};
   for (let key in rules) {
     const existing = rules[key];
-    result[key] = existing.map(r =>
-      makeRule({ ...r, ignore: r.ignore || ignore })
-    );
+    result[key] = existing.map(r => {
+      return makeRule(Object.assign({}, r, { ignore: r.ignore || ignore }));
+    });
   }
   return result;
 }
