@@ -147,6 +147,12 @@ type rule = {
   // for each of the variables described in `variables` and in the context.
   predicate: expr,
 
+  // This is a number indicating the probability that this rule will be
+  // selected. The probabilities are normalized after context and predicate
+  // are evaulated, based on the remaining rules, so this probability does
+  // not have to fit in any particular range.
+  probability: number,
+
   // This is the set of productions for the next items, if the rule applies.
   // Each item in the array is a tuple (id, exprs) where `id` is the ID of
   // the item to produce, and `exprs` are expressions for the values of the
@@ -161,6 +167,7 @@ function makeRule({
   right,
   ignore,
   predicate,
+  probability,
   next,
 }: {
   variables?: var_id[],
@@ -168,6 +175,7 @@ function makeRule({
   right?: context_rule[],
   ignore?: item_id[],
   predicate?: expr,
+  probability?: number,
   next: item_expr[],
 }): rule {
   return {
@@ -176,6 +184,7 @@ function makeRule({
     right: right || [],
     ignore: ignore || [],
     predicate: predicate || true,
+    probability: probability || 1,
     next: next,
   };
 }
@@ -250,19 +259,19 @@ function tryBindContext(
 // Applying a rules can fail for a lot of different reasons, including a failure
 // to match either the left or right context, or failure to match the predicate,
 // or failure to have the right number of parameters. If the rule applies
-// successfully, this function returns an array items to replace the item being
-// applied. Otherwise, this function returns null.
+// successfully, this function returns the bindings for the successful application
+// of the rule, otherwise it returns null.
 function tryApplyRule(
   rule: rule,
   parameters: value[],
   left: item[],
   right: item[]
-): ?(item[]) {
+): ?{ [var_id]: value } {
   if (rule.variables.length != parameters.length) {
     return null;
   }
 
-  let bindings: { [string]: value } = {};
+  let bindings: { [var_id]: value } = {};
   for (let i = 0; i < rule.variables.length; i++) {
     bindings[rule.variables[i]] = parameters[i];
   }
@@ -289,10 +298,7 @@ function tryApplyRule(
     return null;
   }
 
-  return rule.next.map(next => [
-    next[0],
-    next[1].map(e => evalExpression(e, bindings)),
-  ]);
+  return bindings;
 }
 
 type rule_set = { [item_id]: rule[] };
@@ -325,8 +331,12 @@ function nextState(state: item[], rules: rule_set): item[] {
     let matched = false;
     const right = state.slice(i + 1);
     for (let j = 0; j < rs.length; j++) {
-      const new_items = tryApplyRule(rs[j], current_vals, left, right);
-      if (new_items != null) {
+      const bindings = tryApplyRule(rs[j], current_vals, left, right);
+      if (bindings != null) {
+        const new_items = rs[j].next.map(next => [
+          next[0],
+          next[1].map(e => evalExpression(e, bindings)),
+        ]);
         result.push(...new_items);
         matched = true;
         break;

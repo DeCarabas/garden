@@ -53,11 +53,7 @@ describe("tryApplyRule", () => {
     const rule = makeRule({
       variables: ["s", "t", "c"],
       predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
-      next: [
-        ["F", [["*", 2, ["/", "s", 3]], 2, "c"]],
-        ["f", [1]],
-        ["F", [["/", "s", 3], 1, "c"]],
-      ],
+      next: [],
     });
 
     function apply(name, parameters, result) {
@@ -66,11 +62,7 @@ describe("tryApplyRule", () => {
       );
     }
 
-    apply(
-      "can succeed",
-      [6, 1, 35],
-      [["F", [4, 2, 35]], ["f", [1]], ["F", [2, 1, 35]]]
-    );
+    apply("can succeed", [6, 1, 35], { s: 6, t: 1, c: 35 });
     apply("fails with too few", [1, 2], null);
     apply("fails with too many", [1, 2, 3, 4], null);
     apply("fails predicates", [1, 3], null);
@@ -81,11 +73,11 @@ describe("tryApplyRule", () => {
       const rule = makeRule({
         variables: [],
         left: [["b", []]],
-        next: [["b", []]],
+        next: [],
       });
 
       it("can match left context", () =>
-        expect(tryApplyRule(rule, [], [["b", []]], [])).toEqual([["b", []]]));
+        expect(tryApplyRule(rule, [], [["b", []]], [])).toEqual({}));
       it("can fail to match left context by id", () =>
         expect(tryApplyRule(rule, [], [["a", []]], [])).toEqual(null));
       it("can fail to match left context by arity", () =>
@@ -93,39 +85,39 @@ describe("tryApplyRule", () => {
     });
 
     describe("where the context binds variables", () => {
+      const success = { x: 2, y: 1 };
       const rule = makeRule({
         variables: ["x"],
         left: [["b", ["y"]]],
         predicate: [">", "x", "y"],
-        next: [["b", [["+", "x", "y"]]]],
+        next: [],
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual([
-          ["b", [3]],
-        ]));
+        expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual(success));
       it("can fail the predicate", () =>
         expect(tryApplyRule(rule, [2], [["b", [4]]], [])).toEqual(null));
     });
 
     describe("where the context is longer", () => {
+      const success = { x: 2, y: 1, z: 2 };
       const rule = makeRule({
         variables: ["x"],
         left: [["a", ["y"]], ["b", ["z"]]],
         predicate: [">", "x", "y"],
-        next: [["b", [["+", "x", "y", "z"]]]],
+        next: [],
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [["a", [1]], ["b", [2]]], [])).toEqual([
-          ["b", [5]],
-        ]));
+        expect(tryApplyRule(rule, [2], [["a", [1]], ["b", [2]]], [])).toEqual(
+          success
+        ));
       it("can receive too small", () =>
         expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual(null));
       it("can work longer", () =>
         expect(
           tryApplyRule(rule, [2], [["x", [23]], ["a", [1]], ["b", [2]]], [])
-        ).toEqual([["b", [5]]]));
+        ).toEqual(success));
       it("can fail the predicate", () =>
         expect(tryApplyRule(rule, [2], [["a", [4]], ["b", [2]]], [])).toEqual(
           null
@@ -138,11 +130,11 @@ describe("tryApplyRule", () => {
       const rule = makeRule({
         variables: [],
         right: [["b", []]],
-        next: [["b", []]],
+        next: [],
       });
 
       it("can match right context", () =>
-        expect(tryApplyRule(rule, [], [], [["b", []]])).toEqual([["b", []]]));
+        expect(tryApplyRule(rule, [], [], [["b", []]])).toEqual({}));
       it("can fail to match right context by id", () =>
         expect(tryApplyRule(rule, [], [], [["a", []]])).toEqual(null));
       it("can fail to match right context by arity", () =>
@@ -150,11 +142,11 @@ describe("tryApplyRule", () => {
     });
 
     describe("with branching contexts", () => {
-      const success = [["b", []]];
+      const success = {};
       const rule = makeRule({
         variables: [],
         right: [["b", []], ["c", []]],
-        next: success,
+        next: [],
       });
 
       const apply = context => tryApplyRule(rule, [], [], _is(context));
@@ -167,12 +159,12 @@ describe("tryApplyRule", () => {
     });
 
     describe("with ignores", () => {
-      const success = [["b", []]];
+      const success = {};
       const rule = makeRule({
         variables: [],
         right: [["b", []], ["c", []]],
         ignore: "f~".split(""),
-        next: success,
+        next: [],
       });
 
       const apply = context => tryApplyRule(rule, [], [], _is(context));
@@ -189,35 +181,41 @@ describe("tryApplyRule", () => {
         variables: ["x"],
         right: [["b", ["y"]]],
         predicate: [">", "x", "y"],
-        next: [["b", [["+", "x", "y"]]]],
+        next: [],
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual([
-          ["b", [3]],
-        ]));
+        expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual({
+          x: 2,
+          y: 1,
+        }));
       it("can fail the predicate", () =>
         expect(tryApplyRule(rule, [2], [], [["b", [4]]])).toEqual(null));
     });
 
     describe("where the context is longer", () => {
+      const success = {
+        x: 2,
+        y: 1,
+        z: 2,
+      };
       const rule = makeRule({
         variables: ["x"],
         right: [["b", ["y"]], ["c", ["z"]]],
         predicate: [">", "x", "y"],
-        next: [["b", [["+", "x", "y", "z"]]]],
+        next: [],
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]]])).toEqual([
-          ["b", [5]],
-        ]));
+        expect(tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]]])).toEqual(
+          success
+        ));
       it("can receive too small", () =>
         expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual(null));
       it("can work longer", () =>
         expect(
           tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]], ["zz", [412]]])
-        ).toEqual([["b", [5]]]));
+        ).toEqual(success));
       it("can fail the predicate", () =>
         expect(tryApplyRule(rule, [2], [], [["b", [4]], ["c", [2]]])).toEqual(
           null
