@@ -4,12 +4,14 @@ const {
   evalExpression,
   makeRule,
   makeRuleSet,
-  nextState,
+  rewrite,
   tryBindRule,
 } = require("../lsystem");
 const expect = require("expect");
 declare var describe: (string, () => void) => void;
 declare var it: (string, () => void) => void;
+
+// import type item from ('../lsystem');
 
 describe("evalExpression", () => {
   it("evals numbers", () => expect(evalExpression(5, {})).toBe(5));
@@ -44,7 +46,7 @@ describe("evalExpression", () => {
 });
 
 /** Split a string into individual items without values, for testing. */
-function _is(s) {
+function _is(s): [string, any[]][] {
   return s.split("").map(c => [c, []]);
 }
 
@@ -224,34 +226,59 @@ describe("tryBindRule", () => {
   });
 });
 
-describe("nextState", () => {
-  const states = [
-    _is("baaaaaaaaa"),
-    _is("abaaaaaaaa"),
-    _is("aabaaaaaaa"),
-    _is("aaabaaaaaa"),
-    _is("aaaabaaaaa"),
-  ];
-  const rules = makeRuleSet({
-    rules: {
-      a: [
-        {
-          left: [["b", []]],
-          next: [["b", []]],
-        },
-      ],
-      b: [
-        {
-          next: [["a", []]],
-        },
-      ],
-    },
+describe("rewrite", () => {
+  describe("simple", () => {
+    const states = [
+      _is("baaaaaaaaa"),
+      _is("abaaaaaaaa"),
+      _is("aabaaaaaaa"),
+      _is("aaabaaaaaa"),
+      _is("aaaabaaaaa"),
+    ];
+    const rules = makeRuleSet({
+      rules: {
+        a: [
+          {
+            left: [["b", []]],
+            next: [["b", []]],
+          },
+        ],
+        b: [
+          {
+            next: [["a", []]],
+          },
+        ],
+      },
+    });
+
+    for (let i = 0; i < states.length - 1; i++) {
+      const index = i;
+      it("evolves " + i.toString() + " -> " + (i + 1).toString(), () =>
+        expect(rewrite(states[index], rules)).toEqual(states[index + 1])
+      );
+    }
   });
 
-  for (let i = 0; i < states.length - 1; i++) {
-    const index = i;
-    it("evolves " + i.toString() + " -> " + (i + 1).toString(), () =>
-      expect(nextState(states[index], rules)).toEqual(states[index + 1])
-    );
-  }
+  describe("stochastic", () => {
+    const initial = _is("a");
+    const rules = makeRuleSet({
+      rules: {
+        a: [
+          { probability: 0.25, next: _is("ba") },
+          { probability: 0.25, next: _is("ca") },
+          { probability: 0.5, next: _is("a") },
+        ],
+      },
+    });
+
+    let final = initial;
+    for (let i = 0; i < 1000; i++) {
+      final = rewrite(final, rules);
+    }
+
+    it("selects 'b' sometimes", () =>
+      expect(final.findIndex(i => i[0] == "b")).not.toEqual(-1));
+    it("selects 'c' sometimes", () =>
+      expect(final.findIndex(i => i[0] == "c")).not.toEqual(-1));
+  });
 });

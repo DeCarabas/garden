@@ -336,7 +336,7 @@ function pickMatch(matches) {
   return matches[matches.length - 1];
 }
 
-function nextState(state: item[], rules: rule_set): item[] {
+function rewrite(state: item[], rules: rule_set): item[] {
   const left = [];
   const stack = [];
   const result = [];
@@ -441,7 +441,7 @@ const full_pattern = {
 module.exports = {
   evalExpression,
   makeRule,
-  tryBindRule,
   makeRuleSet,
-  nextState,
+  rewrite,
+  tryBindRule,
 };
