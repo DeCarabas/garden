@@ -321,6 +321,10 @@ function makeRuleSet({
 }
 
 function pickMatch(matches) {
+  if (matches.length == 1) {
+    return matches[0];
+  }
+
   const total = matches.reduce((p, m) => p + m.rule.probability, 0);
   let pick = Math.random() * total;
   for (let j = 0; j < matches.length; j++) {
