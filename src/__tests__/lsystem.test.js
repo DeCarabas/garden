@@ -5,7 +5,7 @@ const {
   makeRule,
   makeRuleSet,
   nextState,
-  tryApplyRule,
+  tryBindRule,
 } = require("../lsystem");
 const expect = require("expect");
 declare var describe: (string, () => void) => void;
@@ -48,7 +48,7 @@ function _is(s) {
   return s.split("").map(c => [c, []]);
 }
 
-describe("tryApplyRule", () => {
+describe("tryBindRule", () => {
   describe("without context", () => {
     const rule = makeRule({
       variables: ["s", "t", "c"],
@@ -58,7 +58,7 @@ describe("tryApplyRule", () => {
 
     function apply(name, parameters, result) {
       it(name, () =>
-        expect(tryApplyRule(rule, parameters, [], [])).toEqual(result)
+        expect(tryBindRule(rule, parameters, [], [])).toEqual(result)
       );
     }
 
@@ -77,11 +77,11 @@ describe("tryApplyRule", () => {
       });
 
       it("can match left context", () =>
-        expect(tryApplyRule(rule, [], [["b", []]], [])).toEqual({}));
+        expect(tryBindRule(rule, [], [["b", []]], [])).toEqual({}));
       it("can fail to match left context by id", () =>
-        expect(tryApplyRule(rule, [], [["a", []]], [])).toEqual(null));
+        expect(tryBindRule(rule, [], [["a", []]], [])).toEqual(null));
       it("can fail to match left context by arity", () =>
-        expect(tryApplyRule(rule, [], [["b", [7]]], [])).toEqual(null));
+        expect(tryBindRule(rule, [], [["b", [7]]], [])).toEqual(null));
     });
 
     describe("where the context binds variables", () => {
@@ -94,9 +94,9 @@ describe("tryApplyRule", () => {
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual(success));
+        expect(tryBindRule(rule, [2], [["b", [1]]], [])).toEqual(success));
       it("can fail the predicate", () =>
-        expect(tryApplyRule(rule, [2], [["b", [4]]], [])).toEqual(null));
+        expect(tryBindRule(rule, [2], [["b", [4]]], [])).toEqual(null));
     });
 
     describe("where the context is longer", () => {
@@ -109,17 +109,17 @@ describe("tryApplyRule", () => {
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [["a", [1]], ["b", [2]]], [])).toEqual(
+        expect(tryBindRule(rule, [2], [["a", [1]], ["b", [2]]], [])).toEqual(
           success
         ));
       it("can receive too small", () =>
-        expect(tryApplyRule(rule, [2], [["b", [1]]], [])).toEqual(null));
+        expect(tryBindRule(rule, [2], [["b", [1]]], [])).toEqual(null));
       it("can work longer", () =>
         expect(
-          tryApplyRule(rule, [2], [["x", [23]], ["a", [1]], ["b", [2]]], [])
+          tryBindRule(rule, [2], [["x", [23]], ["a", [1]], ["b", [2]]], [])
         ).toEqual(success));
       it("can fail the predicate", () =>
-        expect(tryApplyRule(rule, [2], [["a", [4]], ["b", [2]]], [])).toEqual(
+        expect(tryBindRule(rule, [2], [["a", [4]], ["b", [2]]], [])).toEqual(
           null
         ));
     });
@@ -134,11 +134,11 @@ describe("tryApplyRule", () => {
       });
 
       it("can match right context", () =>
-        expect(tryApplyRule(rule, [], [], [["b", []]])).toEqual({}));
+        expect(tryBindRule(rule, [], [], [["b", []]])).toEqual({}));
       it("can fail to match right context by id", () =>
-        expect(tryApplyRule(rule, [], [], [["a", []]])).toEqual(null));
+        expect(tryBindRule(rule, [], [], [["a", []]])).toEqual(null));
       it("can fail to match right context by arity", () =>
-        expect(tryApplyRule(rule, [], [], [["b", [7]]])).toEqual(null));
+        expect(tryBindRule(rule, [], [], [["b", [7]]])).toEqual(null));
     });
 
     describe("with branching contexts", () => {
@@ -149,7 +149,7 @@ describe("tryApplyRule", () => {
         next: [],
       });
 
-      const apply = context => tryApplyRule(rule, [], [], _is(context));
+      const apply = context => tryBindRule(rule, [], [], _is(context));
 
       it("can match nested", () => expect(apply("b[o]c")).toEqual(success));
       it("ignores trailing", () => expect(apply("b[ca")).toEqual(success));
@@ -167,7 +167,7 @@ describe("tryApplyRule", () => {
         next: [],
       });
 
-      const apply = context => tryApplyRule(rule, [], [], _is(context));
+      const apply = context => tryBindRule(rule, [], [], _is(context));
 
       it("can ignore (1)", () => expect(apply("bfc")).toEqual(success));
       it("can ignore (2)", () => expect(apply("b~c")).toEqual(success));
@@ -185,12 +185,12 @@ describe("tryApplyRule", () => {
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual({
+        expect(tryBindRule(rule, [2], [], [["b", [1]]])).toEqual({
           x: 2,
           y: 1,
         }));
       it("can fail the predicate", () =>
-        expect(tryApplyRule(rule, [2], [], [["b", [4]]])).toEqual(null));
+        expect(tryBindRule(rule, [2], [], [["b", [4]]])).toEqual(null));
     });
 
     describe("where the context is longer", () => {
@@ -207,17 +207,17 @@ describe("tryApplyRule", () => {
       });
 
       it("can work", () =>
-        expect(tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]]])).toEqual(
+        expect(tryBindRule(rule, [2], [], [["b", [1]], ["c", [2]]])).toEqual(
           success
         ));
       it("can receive too small", () =>
-        expect(tryApplyRule(rule, [2], [], [["b", [1]]])).toEqual(null));
+        expect(tryBindRule(rule, [2], [], [["b", [1]]])).toEqual(null));
       it("can work longer", () =>
         expect(
-          tryApplyRule(rule, [2], [], [["b", [1]], ["c", [2]], ["zz", [412]]])
+          tryBindRule(rule, [2], [], [["b", [1]], ["c", [2]], ["zz", [412]]])
         ).toEqual(success));
       it("can fail the predicate", () =>
-        expect(tryApplyRule(rule, [2], [], [["b", [4]], ["c", [2]]])).toEqual(
+        expect(tryBindRule(rule, [2], [], [["b", [4]], ["c", [2]]])).toEqual(
           null
         ));
     });

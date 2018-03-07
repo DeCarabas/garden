@@ -261,7 +261,7 @@ function tryBindContext(
 // or failure to have the right number of parameters. If the rule applies
 // successfully, this function returns the bindings for the successful application
 // of the rule, otherwise it returns null.
-function tryApplyRule(
+function tryBindRule(
   rule: rule,
   parameters: value[],
   left: item[],
@@ -331,7 +331,7 @@ function nextState(state: item[], rules: rule_set): item[] {
     let matched = false;
     const right = state.slice(i + 1);
     for (let j = 0; j < rs.length; j++) {
-      const bindings = tryApplyRule(rs[j], current_vals, left, right);
+      const bindings = tryBindRule(rs[j], current_vals, left, right);
       if (bindings != null) {
         const new_items = rs[j].next.map(next => [
           next[0],
@@ -421,7 +421,7 @@ const full_pattern = {
 module.exports = {
   evalExpression,
   makeRule,
-  tryApplyRule,
+  tryBindRule,
   makeRuleSet,
   nextState,
 };
