@@ -320,6 +320,18 @@ function makeRuleSet({
   return result;
 }
 
+function pickMatch(matches) {
+  const total = matches.reduce((p, m) => p + m.rule.probability, 0);
+  let pick = Math.random() * total;
+  for (let j = 0; j < matches.length; j++) {
+    pick -= matches[j].rule.probability;
+    if (pick <= 0) {
+      return matches[j];
+    }
+  }
+  return matches[matches.length - 1];
+}
+
 function nextState(state: item[], rules: rule_set): item[] {
   const left = [];
   const stack = [];
@@ -328,23 +340,27 @@ function nextState(state: item[], rules: rule_set): item[] {
     const [current_id, current_vals] = state[i];
     const rs = rules[current_id] || [];
 
-    let matched = false;
     const right = state.slice(i + 1);
-    for (let j = 0; j < rs.length; j++) {
-      const bindings = tryBindRule(rs[j], current_vals, left, right);
-      if (bindings != null) {
-        const new_items = rs[j].next.map(next => [
-          next[0],
-          next[1].map(e => evalExpression(e, bindings)),
-        ]);
-        result.push(...new_items);
-        matched = true;
-        break;
-      }
-    }
+    const matches = rs
+      .map(r => {
+        return {
+          rule: r,
+          bindings: tryBindRule(r, current_vals, left, right),
+        };
+      })
+      .filter(m => m.bindings != null);
 
-    if (!matched) {
+    if (matches.length == 0) {
       result.push(state[i]);
+    } else {
+      const match = pickMatch(matches);
+      const bindings = match.bindings;
+      invariant(bindings != null, "(see filter)");
+      const new_items = match.rule.next.map(next => [
+        next[0],
+        next[1].map(e => evalExpression(e, bindings)),
+      ]);
+      result.push(...new_items);
     }
 
     if (current_id == "[") {
