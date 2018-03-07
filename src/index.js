@@ -1,9 +1,10 @@
 // @flow
 // @format
-const { mat4, vec3 } = require("gl-matrix");
+const { mat4, vec3, vec4 } = require("gl-matrix");
 const { makeRuleSet, rewrite } = require("./lsystem");
 
 import type { item_expr } from "./lsystem";
+import type { Mat4, Vec3 } from "gl-matrix";
 
 type production = {| probability: number, value: string[] |};
 
@@ -33,6 +34,18 @@ function parseItemExpr(rule_value: string): item_expr[] {
     i++;
   }
   return symbols;
+}
+
+function itemExpr(chunks: string[], ...vals: any[]) {
+  // One big string...
+  let rule_value = "";
+  for (let i = 0; i < chunks.length; i++) {
+    rule_value += chunks[i];
+    if (i < vals.length) {
+      rule_value += vals[i].toString();
+    }
+  }
+  return parseItemExpr(rule_value);
 }
 
 // parse a rules dictionary into a more usable form.
@@ -160,34 +173,30 @@ const systems = {
       rules: {
         plant: [
           {
-            next: parseItemExpr(`
+            next: itemExpr`
               (internode) + [(plant) + (flower)] - - // [ - - (leaf)]
               (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)
               (flower)
-            `),
+            `,
           },
         ],
         internode: [
           {
-            next: parseItemExpr(
-              `F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)`
-            ),
+            next: itemExpr`F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)`,
           },
         ],
         seg: [{ next: parseItemExpr("(seg) F (seg)") }],
-        leaf: [
-          { next: parseItemExpr("[' { + f - ff - f + | + f - ff - f } ]") },
-        ],
+        leaf: [{ next: itemExpr`[' { + f - ff - f + | + f - ff - f } ]` }],
         flower: [
           {
-            next: parseItemExpr(`
+            next: itemExpr`
               [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////
               (wedge) //// (wedge) ]
-            `),
+            `,
           },
         ],
-        pedicel: [{ next: parseItemExpr("FF") }],
-        wedge: [{ next: parseItemExpr("['^F][{&&&&-f+f|-f+f}]") }],
+        pedicel: [{ next: itemExpr`FF` }],
+        wedge: [{ next: itemExpr`['^F][{&&&&-f+f|-f+f}]` }],
       },
     }),
   },
@@ -202,30 +211,46 @@ const systems = {
   },
 
   rando_flower: {
-    initial: ["plant"],
+    initial: [["plant", []]],
     angle: toRadians(18),
     initial_steps: 5,
-    rules: parse_rules({
-      plant:
-        "(internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)" +
-        "[ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)",
-      internode: "F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)",
-      seg: [
-        "(seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)",
-        "(seg) F (seg)",
-        "(seg)",
-      ],
-      leaf: "[' { + f - ff - f + | + f - ff - f } ]",
-      flower:
-        "[& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) //// (wedge)" +
-        "//// (wedge) ]",
-      pedicel: "FF",
-      wedge: "['^F][{&&&&-f+f|-f+f}]",
+    rules: makeRuleSet({
+      rules: {
+        plant: [
+          {
+            next: itemExpr`
+              (internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)
+              [ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)
+            `,
+          },
+        ],
+        internode: [
+          {
+            next: itemExpr`F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)`,
+          },
+        ],
+        seg: [
+          { next: itemExpr`(seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)` },
+          { next: itemExpr`(seg) F (seg)` },
+          { next: itemExpr`(seg)` },
+        ],
+        leaf: [{ next: itemExpr`[' { + f - ff - f + | + f - ff - f } ]` }],
+        flower: [
+          {
+            next: itemExpr`
+              [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////
+              (wedge) //// (wedge)]
+            `,
+          },
+        ],
+        pedicel: [{ next: itemExpr`FF` }],
+        wedge: [{ next: itemExpr`['^F][{&&&&-f+f|-f+f}]` }],
+      },
     }),
   },
 };
 
-const { initial, angle, initial_steps, rules } = systems["hilbert3d"];
+const { initial, angle, initial_steps, rules } = systems.rando_flower;
 
 let state, DEBUG_RENDER_LIMIT;
 
@@ -245,8 +270,8 @@ init();
 
 // Rendering stuff
 class MeasureContext {
-  min: vec3;
-  max: vec3;
+  min: Vec3;
+  max: Vec3;
 
   constructor() {
     this.min = vec3.fromValues(0, 0, 0);
@@ -267,11 +292,16 @@ class MeasureContext {
 
 class RenderContext {
   gl: WebGLRenderingContext;
-  initial_matrix: mat4;
-  target_matrix: mat4;
-  projection_matrix: mat4;
-  scale_vec: vec3;
-  translate_vec: vec3;
+  initial_matrix: Mat4;
+  target_matrix: Mat4;
+  projection_matrix: Mat4;
+  scale_vec: Vec3;
+  translate_vec: Vec3;
+
+  points: Vec3[];
+  colors: Vec4[];
+  vertexNormals: Vec3[];
+  indices: number[];
 
   constructor(gl, projection_matrix, initial_matrix) {
     this.gl = gl;
@@ -287,6 +317,11 @@ class RenderContext {
     const LINE_THICKNESS = 0.1;
     this.scale_vec = [LINE_THICKNESS, LINE_THICKNESS, 1];
     this.translate_vec = [0, 0, 0];
+
+    this.points = [];
+    this.colors = [];
+    this.vertexNormals = [];
+    this.indices = [];
   }
 
   line(matrix, length) {
@@ -296,6 +331,33 @@ class RenderContext {
     mat4.multiply(this.target_matrix, this.initial_matrix, matrix);
     mat4.translate(this.target_matrix, this.target_matrix, this.translate_vec);
     mat4.scale(this.target_matrix, this.target_matrix, this.scale_vec);
+
+    const normalMatrix = mat4.create();
+    mat4.invert(normalMatrix, this.target_matrix);
+    mat4.transpose(normalMatrix, normalMatrix);
+
+    const index_offset = this.points.length;
+    for (let i = 0; i < cube.positions.length; i++) {
+      const pos = vec3.transformMat4(
+        vec3.create(),
+        cube.positions[i],
+        this.target_matrix
+      );
+      const norm = vec3.transformMat4(
+        vec3.create(),
+        cube.vertexNormals[i],
+        normalMatrix
+      );
+
+      this.points.push(pos);
+      this.colors.push(cube.colors[i]);
+      this.vertexNormals.push(norm);
+    }
+
+    for (let i = 0; i < cube.indices.length; i++) {
+      this.indices.push(cube.indices[i] + index_offset);
+    }
+
     drawCube(this.gl, this.projection_matrix, this.target_matrix);
   }
 }
@@ -311,7 +373,7 @@ function render(state, context, config) {
   vec3.cross(up_vector, head_vector, left_vector);
 
   // TODO: Actually initialize by head/left/up?
-  let current_matrix: mat4 = mat4.create();
+  let current_matrix = mat4.create();
 
   vec3.scale(head_vector, head_vector, step_length);
 
@@ -380,8 +442,8 @@ const fsSource = `
     highp float directional = max(dot(vNormal.xyz, directionalVector), 0.0);
     highp vec3 vLighting = ambientLight + (directionalLightColor * directional);
 
-    //gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
-    gl_FragColor = vec4(vLighting, 1.0);
+    gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
+    //gl_FragColor = vec4(vLighting, 1.0);
   }
 `;
 
@@ -424,110 +486,96 @@ function loadShader(gl, type, source) {
   return shader;
 }
 
-function initBuffers(gl) {
+const cube = (function() {
   const positions = [
     // Front face
-    ...[-0.5, -0.5, 0.5],
-    ...[0.5, -0.5, 0.5],
-    ...[0.5, 0.5, 0.5],
-    ...[-0.5, 0.5, 0.5],
+    vec3.fromValues(-0.5, -0.5, 0.5),
+    vec3.fromValues(0.5, -0.5, 0.5),
+    vec3.fromValues(0.5, 0.5, 0.5),
+    vec3.fromValues(-0.5, 0.5, 0.5),
 
     // Back face
-    ...[-0.5, -0.5, -0.5],
-    ...[-0.5, 0.5, -0.5],
-    ...[0.5, 0.5, -0.5],
-    ...[0.5, -0.5, -0.5],
+    vec3.fromValues(-0.5, -0.5, -0.5),
+    vec3.fromValues(-0.5, 0.5, -0.5),
+    vec3.fromValues(0.5, 0.5, -0.5),
+    vec3.fromValues(0.5, -0.5, -0.5),
 
     // Top face
-    ...[-0.5, 0.5, -0.5],
-    ...[-0.5, 0.5, 0.5],
-    ...[0.5, 0.5, 0.5],
-    ...[0.5, 0.5, -0.5],
+    vec3.fromValues(-0.5, 0.5, -0.5),
+    vec3.fromValues(-0.5, 0.5, 0.5),
+    vec3.fromValues(0.5, 0.5, 0.5),
+    vec3.fromValues(0.5, 0.5, -0.5),
 
     // Bottom face
-    ...[-0.5, -0.5, -0.5],
-    ...[0.5, -0.5, -0.5],
-    ...[0.5, -0.5, 0.5],
-    ...[-0.5, -0.5, 0.5],
+    vec3.fromValues(-0.5, -0.5, -0.5),
+    vec3.fromValues(0.5, -0.5, -0.5),
+    vec3.fromValues(0.5, -0.5, 0.5),
+    vec3.fromValues(-0.5, -0.5, 0.5),
 
     // Right face
-    ...[0.5, -0.5, -0.5],
-    ...[0.5, 0.5, -0.5],
-    ...[0.5, 0.5, 0.5],
-    ...[0.5, -0.5, 0.5],
+    vec3.fromValues(0.5, -0.5, -0.5),
+    vec3.fromValues(0.5, 0.5, -0.5),
+    vec3.fromValues(0.5, 0.5, 0.5),
+    vec3.fromValues(0.5, -0.5, 0.5),
 
     // Left face
-    ...[-0.5, -0.5, -0.5],
-    ...[-0.5, -0.5, 0.5],
-    ...[-0.5, 0.5, 0.5],
-    ...[-0.5, 0.5, -0.5],
+    vec3.fromValues(-0.5, -0.5, -0.5),
+    vec3.fromValues(-0.5, -0.5, 0.5),
+    vec3.fromValues(-0.5, 0.5, 0.5),
+    vec3.fromValues(-0.5, 0.5, -0.5),
   ];
-  const positionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
   const faceColors = [
-    [1.0, 1.0, 1.0, 1.0], // Front face: white
-    [1.0, 0.0, 0.0, 1.0], // Back face: red
-    [0.0, 1.0, 0.0, 1.0], // Top face: green
-    [0.0, 0.0, 1.0, 1.0], // Bottom face: blue
-    [1.0, 1.0, 0.0, 1.0], // Right face: yellow
-    [1.0, 0.0, 1.0, 1.0], // Left face: purple
+    vec4.fromValues(1.0, 1.0, 1.0, 1.0), // Front face: white
+    vec4.fromValues(1.0, 0.0, 0.0, 1.0), // Back face: red
+    vec4.fromValues(0.0, 1.0, 0.0, 1.0), // Top face: green
+    vec4.fromValues(0.0, 0.0, 1.0, 1.0), // Bottom face: blue
+    vec4.fromValues(1.0, 1.0, 0.0, 1.0), // Right face: yellow
+    vec4.fromValues(1.0, 0.0, 1.0, 1.0), // Left face: purple
   ];
   let colors = [];
   for (let j = 0; j < faceColors.length; j++) {
     const c = faceColors[j];
-    colors = colors.concat(c, c, c, c);
+    colors.push(c, c, c, c);
   }
-
-  const colorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 
   const vertexNormals = [
     // Front
-    ...[0.0, 0.0, 1.0],
-    ...[0.0, 0.0, 1.0],
-    ...[0.0, 0.0, 1.0],
-    ...[0.0, 0.0, 1.0],
+    vec3.fromValues(0.0, 0.0, 1.0),
+    vec3.fromValues(0.0, 0.0, 1.0),
+    vec3.fromValues(0.0, 0.0, 1.0),
+    vec3.fromValues(0.0, 0.0, 1.0),
 
     // Back
-    ...[0.0, 0.0, -1.0],
-    ...[0.0, 0.0, -1.0],
-    ...[0.0, 0.0, -1.0],
-    ...[0.0, 0.0, -1.0],
+    vec3.fromValues(0.0, 0.0, -1.0),
+    vec3.fromValues(0.0, 0.0, -1.0),
+    vec3.fromValues(0.0, 0.0, -1.0),
+    vec3.fromValues(0.0, 0.0, -1.0),
 
     // Top
-    ...[0.0, 1.0, 0.0],
-    ...[0.0, 1.0, 0.0],
-    ...[0.0, 1.0, 0.0],
-    ...[0.0, 1.0, 0.0],
+    vec3.fromValues(0.0, 1.0, 0.0),
+    vec3.fromValues(0.0, 1.0, 0.0),
+    vec3.fromValues(0.0, 1.0, 0.0),
+    vec3.fromValues(0.0, 1.0, 0.0),
 
     // Bottom
-    ...[0.0, -1.0, 0.0],
-    ...[0.0, -1.0, 0.0],
-    ...[0.0, -1.0, 0.0],
-    ...[0.0, -1.0, 0.0],
+    vec3.fromValues(0.0, -1.0, 0.0),
+    vec3.fromValues(0.0, -1.0, 0.0),
+    vec3.fromValues(0.0, -1.0, 0.0),
+    vec3.fromValues(0.0, -1.0, 0.0),
 
     // Right
-    ...[1.0, 0.0, 0.0],
-    ...[1.0, 0.0, 0.0],
-    ...[1.0, 0.0, 0.0],
-    ...[1.0, 0.0, 0.0],
+    vec3.fromValues(1.0, 0.0, 0.0),
+    vec3.fromValues(1.0, 0.0, 0.0),
+    vec3.fromValues(1.0, 0.0, 0.0),
+    vec3.fromValues(1.0, 0.0, 0.0),
 
     // Left
-    ...[-1.0, 0.0, 0.0],
-    ...[-1.0, 0.0, 0.0],
-    ...[-1.0, 0.0, 0.0],
-    ...[-1.0, 0.0, 0.0],
+    vec3.fromValues(-1.0, 0.0, 0.0),
+    vec3.fromValues(-1.0, 0.0, 0.0),
+    vec3.fromValues(-1.0, 0.0, 0.0),
+    vec3.fromValues(-1.0, 0.0, 0.0),
   ];
-  const normalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array(vertexNormals),
-    gl.STATIC_DRAW
-  );
 
   // This array defines each face as two triangles, using the
   // indices into the vertex array to specify each triangle's
@@ -540,11 +588,40 @@ function initBuffers(gl) {
     ...[...[16, 17, 18], ...[16, 18, 19]], // right
     ...[...[20, 21, 22], ...[20, 22, 23]], // left
   ];
+
+  return { positions, colors, vertexNormals, indices };
+})();
+
+function initBuffers(gl) {
+  const positions = [];
+  for (let i = 0; i < cube.positions.length; i++) {
+    positions.push(...cube.positions[i]);
+  }
+  const positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+  const colors = [];
+  for (let i = 0; i < cube.colors.length; i++) {
+    colors.push(...cube.colors[i]);
+  }
+  const colorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+  const normals = [];
+  for (let i = 0; i < cube.vertexNormals.length; i++) {
+    normals.push(...cube.vertexNormals[i]);
+  }
+  const normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
   const indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
   gl.bufferData(
     gl.ELEMENT_ARRAY_BUFFER,
-    new Uint16Array(indices),
+    new Uint16Array(cube.indices),
     gl.STATIC_DRAW
   );
 
@@ -705,17 +782,17 @@ function drawCube(gl, projectionMatrix, modelViewMatrix) {
   gl.uniformMatrix4fv(
     programInfo.uniformLocations.projectionMatrix,
     false,
-    projectionMatrix
+    (projectionMatrix: any)
   );
   gl.uniformMatrix4fv(
     programInfo.uniformLocations.normalMatrix,
     false,
-    normalMatrix
+    (normalMatrix: any)
   );
   gl.uniformMatrix4fv(
     programInfo.uniformLocations.modelViewMatrix,
     false,
-    modelViewMatrix
+    (modelViewMatrix: any)
   );
 
   {
