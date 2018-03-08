@@ -4,7 +4,7 @@ const { mat4, vec3, vec4 } = require("gl-matrix");
 const { makeRuleSet, rewrite } = require("./lsystem");
 
 import type { item_expr } from "./lsystem";
-import type { Mat4, Vec3 } from "gl-matrix";
+import type { Mat4, Vec3, Vec4 } from "gl-matrix";
 
 type production = {| probability: number, value: string[] |};
 
@@ -102,6 +102,18 @@ function parse_rules(rule_dictionary: {
 
 // Here are a gallery of systems that I'm playing with!
 const systems = {
+  // debug
+  debug: {
+    initial: [["F", []]],
+    angle: toRadians(0),
+    initial_steps: 0,
+    rules: makeRuleSet({
+      rules: {
+        F: [{ next: itemExpr`FF` }],
+      },
+    }),
+  },
+
   // Hexagonal gosper curve (not right)
   hex_gosper: {
     initial: ["F", "F1"],
@@ -252,7 +264,8 @@ const systems = {
 
 const { initial, angle, initial_steps, rules } = systems.rando_flower;
 
-let state, DEBUG_RENDER_LIMIT;
+let state;
+let DEBUG_RENDER_LIMIT;
 
 function step() {
   state = rewrite(state, rules);
@@ -291,34 +304,29 @@ class MeasureContext {
 }
 
 class RenderContext {
-  gl: WebGLRenderingContext;
   initial_matrix: Mat4;
   target_matrix: Mat4;
-  projection_matrix: Mat4;
   scale_vec: Vec3;
   translate_vec: Vec3;
 
-  points: Vec3[];
+  positions: Vec3[];
   colors: Vec4[];
   vertexNormals: Vec3[];
   indices: number[];
 
-  constructor(gl, projection_matrix, initial_matrix) {
-    this.gl = gl;
-
+  constructor() {
     // Translate in by a little bit, just so that the center is the base of the
     // cube.
     this.initial_matrix = mat4.create();
-    mat4.translate(this.initial_matrix, initial_matrix, [0, 0, -0.5]);
+    mat4.fromTranslation(this.initial_matrix, [0, 0, -0.5]);
 
-    this.projection_matrix = projection_matrix;
     this.target_matrix = mat4.create();
 
     const LINE_THICKNESS = 0.1;
     this.scale_vec = [LINE_THICKNESS, LINE_THICKNESS, 1];
     this.translate_vec = [0, 0, 0];
 
-    this.points = [];
+    this.positions = [];
     this.colors = [];
     this.vertexNormals = [];
     this.indices = [];
@@ -336,7 +344,7 @@ class RenderContext {
     mat4.invert(normalMatrix, this.target_matrix);
     mat4.transpose(normalMatrix, normalMatrix);
 
-    const index_offset = this.points.length;
+    const index_offset = this.positions.length;
     for (let i = 0; i < cube.positions.length; i++) {
       const pos = vec3.transformMat4(
         vec3.create(),
@@ -349,7 +357,7 @@ class RenderContext {
         normalMatrix
       );
 
-      this.points.push(pos);
+      this.positions.push(pos);
       this.colors.push(cube.colors[i]);
       this.vertexNormals.push(norm);
     }
@@ -357,8 +365,6 @@ class RenderContext {
     for (let i = 0; i < cube.indices.length; i++) {
       this.indices.push(cube.indices[i] + index_offset);
     }
-
-    drawCube(this.gl, this.projection_matrix, this.target_matrix);
   }
 }
 
@@ -444,6 +450,7 @@ const fsSource = `
 
     gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
     //gl_FragColor = vec4(vLighting, 1.0);
+    //gl_FragColor = vColor;
   }
 `;
 
@@ -592,38 +599,11 @@ const cube = (function() {
   return { positions, colors, vertexNormals, indices };
 })();
 
-function initBuffers(gl) {
-  const positions = [];
-  for (let i = 0; i < cube.positions.length; i++) {
-    positions.push(...cube.positions[i]);
-  }
+function createBuffers(gl) {
   const positionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-  const colors = [];
-  for (let i = 0; i < cube.colors.length; i++) {
-    colors.push(...cube.colors[i]);
-  }
   const colorBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-
-  const normals = [];
-  for (let i = 0; i < cube.vertexNormals.length; i++) {
-    normals.push(...cube.vertexNormals[i]);
-  }
   const normalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-
   const indexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-  gl.bufferData(
-    gl.ELEMENT_ARRAY_BUFFER,
-    new Uint16Array(cube.indices),
-    gl.STATIC_DRAW
-  );
 
   return {
     position: positionBuffer,
@@ -631,6 +611,42 @@ function initBuffers(gl) {
     indices: indexBuffer,
     normals: normalBuffer,
   };
+}
+
+function fillBuffers(gl, buffers, obj) {
+  const positions = [];
+  for (let i = 0; i < obj.positions.length; i++) {
+    positions.push(...obj.positions[i]);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+  const colors = [];
+  for (let i = 0; i < obj.colors.length; i++) {
+    colors.push(...obj.colors[i]);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+  const normals = [];
+  for (let i = 0; i < obj.vertexNormals.length; i++) {
+    normals.push(...obj.vertexNormals[i]);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+  gl.bufferData(
+    gl.ELEMENT_ARRAY_BUFFER,
+    new Uint16Array(obj.indices),
+    gl.STATIC_DRAW
+  );
+}
+
+function initBuffers(gl, obj) {
+  const buffers = createBuffers(gl);
+  fillBuffers(gl, buffers, obj);
+  return buffers;
 }
 
 function setup(gl) {
@@ -668,27 +684,28 @@ if (gardenContext == null) {
   throw Error("Cannot get GL context.");
 }
 const programInfo = setup(gardenContext);
-const buffers = initBuffers(gardenContext);
+const buffers = initBuffers(gardenContext, cube);
 
 const render_config = {
   step_length: 0.5,
   angle_delta: angle,
 };
 
-function draw(gl, cubeRotation) {
+function draw(gl, cubeRotation, plant) {
   // Step 1: Measure the boundaries of the plant.
-  const measure_context = new MeasureContext();
-  render(state, measure_context, render_config);
+  let min = vec3.clone(plant.positions[0]);
+  let max = vec3.clone(plant.positions[0]);
+  for (let i = 1; i < plant.positions.length; i++) {
+    vec3.min(min, min, plant.positions[i]);
+    vec3.max(max, max, plant.positions[i]);
+  }
 
   // Let's just look at the middle of the bounding box...
   // (Borrow "center" for a second to figure out the bounding box size.)
   const center = vec3.create();
-  const radius =
-    vec3.length(
-      vec3.subtract(center, measure_context.max, measure_context.min)
-    ) / 2;
+  const radius = vec3.length(vec3.subtract(center, max, min)) / 2;
   // (Now actually compute the center point of the bounding box.)
-  vec3.lerp(center, measure_context.min, measure_context.max, 0.5);
+  vec3.lerp(center, min, max, 0.5);
   center[0] = 0;
 
   // Step 2: Draw the plant.
@@ -712,12 +729,10 @@ function draw(gl, cubeRotation) {
   // mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, -6.0]);
   // mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * 0.7, [0, 1, 0]);
 
-  const ctx = new RenderContext(gl, projectionMatrix, modelViewMatrix);
-  render(state, ctx, render_config);
-  // drawCube(gl, projectionMatrix, modelViewMatrix);
+  drawCube(gl, projectionMatrix, modelViewMatrix, plant.indices.length);
 }
 
-function drawCube(gl, projectionMatrix, modelViewMatrix) {
+function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
   const normalMatrix = mat4.create();
   mat4.invert(normalMatrix, modelViewMatrix);
   mat4.transpose(normalMatrix, normalMatrix);
@@ -796,12 +811,20 @@ function drawCube(gl, projectionMatrix, modelViewMatrix) {
   );
 
   {
-    const vertexCount = 36;
     const type = gl.UNSIGNED_SHORT;
     const offset = 0;
     gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
   }
 }
+
+let plant;
+function updatePlant() {
+  plant = new RenderContext();
+  window.DEBUG_PLANT = plant;
+  render(state, plant, render_config);
+  fillBuffers(gardenContext, buffers, plant);
+}
+updatePlant();
 
 let then = 0;
 let rotation = 0;
@@ -812,7 +835,7 @@ function onFrame(now) {
 
   rotation += deltaTime;
 
-  draw(gardenContext, rotation);
+  draw(gardenContext, rotation, plant);
   requestAnimationFrame(onFrame);
 }
 requestAnimationFrame(onFrame);
@@ -821,18 +844,35 @@ const stepButton = document.getElementById("step");
 if (!stepButton) {
   throw Error("Cannot find step button.");
 }
-stepButton.addEventListener("click", step);
+stepButton.addEventListener("click", () => {
+  step();
+  updatePlant();
+});
 
 const resetButton = document.getElementById("reset");
 if (resetButton) {
-  resetButton.addEventListener("click", init);
+  resetButton.addEventListener("click", () => {
+    init();
+    updatePlant();
+  });
+}
+
+function logDebugRender() {
+  console.log(
+    DEBUG_RENDER_LIMIT,
+    state
+      .slice(0, DEBUG_RENDER_LIMIT)
+      .map(i => i[0])
+      .join()
+  );
 }
 
 const debugStepButton = document.getElementById("debug_plus");
 if (debugStepButton) {
   debugStepButton.addEventListener("click", function() {
     DEBUG_RENDER_LIMIT += 1;
-    //console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
+    logDebugRender();
+    updatePlant();
   });
 }
 
@@ -840,6 +880,7 @@ const debugMinusButton = document.getElementById("debug_minus");
 if (debugMinusButton) {
   debugMinusButton.addEventListener("click", function() {
     DEBUG_RENDER_LIMIT -= 1;
-    //console.log(DEBUG_RENDER_LIMIT, state.substr(0, DEBUG_RENDER_LIMIT));
+    logDebugRender();
+    updatePlant();
   });
 }
