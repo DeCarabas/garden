@@ -262,7 +262,7 @@ const systems = {
   },
 };
 
-const { initial, angle, initial_steps, rules } = systems.rando_flower;
+const { initial, angle, initial_steps, rules } = systems.hilbert3d;
 
 let state;
 let DEBUG_RENDER_LIMIT;
@@ -280,28 +280,6 @@ function init() {
   }
 }
 init();
-
-// Rendering stuff
-class MeasureContext {
-  min: Vec3;
-  max: Vec3;
-
-  constructor() {
-    this.min = vec3.fromValues(0, 0, 0);
-    this.max = vec3.fromValues(0, 0, 0);
-  }
-
-  line(matrix, length) {
-    const target = vec3.create();
-    vec3.transformMat4(target, [0, 0, 0], matrix);
-    vec3.min(this.min, this.min, target);
-    vec3.max(this.max, this.max, target);
-
-    vec3.transformMat4(target, [0, 0, length], matrix);
-    vec3.min(this.min, this.min, target);
-    vec3.max(this.max, this.max, target);
-  }
-}
 
 class RenderContext {
   initial_matrix: Mat4;
