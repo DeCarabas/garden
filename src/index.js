@@ -262,7 +262,7 @@ const systems = {
   },
 };
 
-const { initial, angle, initial_steps, rules } = systems.hilbert3d;
+const { initial, angle, initial_steps, rules } = systems.rando_flower;
 
 let state;
 let DEBUG_RENDER_LIMIT;
@@ -282,10 +282,8 @@ function init() {
 init();
 
 class RenderContext {
-  initial_matrix: Mat4;
-  target_matrix: Mat4;
-  scale_vec: Vec3;
-  translate_vec: Vec3;
+  origin: Vec3;
+  ending: Vec3;
 
   positions: Vec3[];
   colors: Vec4[];
@@ -293,56 +291,23 @@ class RenderContext {
   indices: number[];
 
   constructor() {
-    // Translate in by a little bit, just so that the center is the base of the
-    // cube.
-    this.initial_matrix = mat4.create();
-    mat4.fromTranslation(this.initial_matrix, [0, 0, -0.5]);
-
-    this.target_matrix = mat4.create();
-
-    const LINE_THICKNESS = 0.1;
-    this.scale_vec = [LINE_THICKNESS, LINE_THICKNESS, 1];
-    this.translate_vec = [0, 0, 0];
+    this.origin = vec3.fromValues(0, 0, 0);
+    this.ending = vec3.fromValues(0, 0, 0);
 
     this.positions = [];
+    this.indices = [];
     this.colors = [];
     this.vertexNormals = [];
-    this.indices = [];
   }
 
   line(matrix, length) {
-    this.scale_vec[2] = length;
-    this.translate_vec[2] = -length / 2;
+    this.ending[2] = -length;
 
-    mat4.multiply(this.target_matrix, this.initial_matrix, matrix);
-    mat4.translate(this.target_matrix, this.target_matrix, this.translate_vec);
-    mat4.scale(this.target_matrix, this.target_matrix, this.scale_vec);
+    const ts = vec3.transformMat4(vec3.create(), this.origin, matrix);
+    const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
 
-    const normalMatrix = mat4.create();
-    mat4.invert(normalMatrix, this.target_matrix);
-    mat4.transpose(normalMatrix, normalMatrix);
-
-    const index_offset = this.positions.length;
-    for (let i = 0; i < cube.positions.length; i++) {
-      const pos = vec3.transformMat4(
-        vec3.create(),
-        cube.positions[i],
-        this.target_matrix
-      );
-      const norm = vec3.transformMat4(
-        vec3.create(),
-        cube.vertexNormals[i],
-        normalMatrix
-      );
-
-      this.positions.push(pos);
-      this.colors.push(cube.colors[i]);
-      this.vertexNormals.push(norm);
-    }
-
-    for (let i = 0; i < cube.indices.length; i++) {
-      this.indices.push(cube.indices[i] + index_offset);
-    }
+    this.indices.push(this.positions.length, this.positions.length + 1);
+    this.positions.push(ts, te);
   }
 }
 
@@ -398,37 +363,38 @@ function toRadians(degrees) {
 // HTML mechanics, WebGL bullshit.
 const vsSource = `
 attribute vec4 aVertexPosition;
-attribute vec3 aVertexNormal;
-attribute vec4 aVertexColor;
+// attribute vec3 aVertexNormal;
+// attribute vec4 aVertexColor;
 
-uniform mat4 uNormalMatrix;
+// uniform mat4 uNormalMatrix;
 uniform mat4 uModelViewMatrix;
 uniform mat4 uProjectionMatrix;
 
-varying lowp vec4 vColor;
-varying highp vec4 vNormal;
+// varying lowp vec4 vColor;
+// varying highp vec4 vNormal;
 
 void main() {
   gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-  vColor = aVertexColor;
-  vNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
+  // vColor = aVertexColor;
+  // vNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
 }
 `;
 const fsSource = `
-  varying lowp vec4 vColor;
-  varying highp vec4 vNormal;
+  // varying lowp vec4 vColor;
+  // varying highp vec4 vNormal;
 
   void main() {
-    highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
-    highp vec3 directionalLightColor = vec3(1, 1, 1);
-    highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+    // highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+    // highp vec3 directionalLightColor = vec3(1, 1, 1);
+    // highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
 
-    highp float directional = max(dot(vNormal.xyz, directionalVector), 0.0);
-    highp vec3 vLighting = ambientLight + (directionalLightColor * directional);
+    // highp float directional = max(dot(vNormal.xyz, directionalVector), 0.0);
+    // highp vec3 vLighting = ambientLight + (directionalLightColor * directional);
 
-    gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
+    // gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
     //gl_FragColor = vec4(vLighting, 1.0);
     //gl_FragColor = vColor;
+    gl_FragColor = vec4(1,1,1,1);
   }
 `;
 
@@ -638,15 +604,15 @@ function setup(gl) {
     program: shaderProgram,
     attribLocations: {
       vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
-      vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
+      // vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
+      // vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
     },
     uniformLocations: {
       projectionMatrix: gl.getUniformLocation(
         shaderProgram,
         "uProjectionMatrix"
       ),
-      normalMatrix: gl.getUniformLocation(shaderProgram, "uNormalMatrix"),
+      // normalMatrix: gl.getUniformLocation(shaderProgram, "uNormalMatrix"),
       modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
     },
   };
@@ -733,41 +699,41 @@ function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
   }
 
-  {
-    const numComponents = 3;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexNormal,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-  }
+  // {
+  //   const numComponents = 3;
+  //   const type = gl.FLOAT;
+  //   const normalize = false;
+  //   const stride = 0;
+  //   const offset = 0;
+  //   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
+  //   gl.vertexAttribPointer(
+  //     programInfo.attribLocations.vertexNormal,
+  //     numComponents,
+  //     type,
+  //     normalize,
+  //     stride,
+  //     offset
+  //   );
+  //   gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
+  // }
 
-  {
-    const numComponents = 4;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexColor,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-  }
+  // {
+  //   const numComponents = 4;
+  //   const type = gl.FLOAT;
+  //   const normalize = false;
+  //   const stride = 0;
+  //   const offset = 0;
+  //   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+  //   gl.vertexAttribPointer(
+  //     programInfo.attribLocations.vertexColor,
+  //     numComponents,
+  //     type,
+  //     normalize,
+  //     stride,
+  //     offset
+  //   );
+  //   gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+  // }
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
 
@@ -777,21 +743,22 @@ function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
     false,
     (projectionMatrix: any)
   );
-  gl.uniformMatrix4fv(
-    programInfo.uniformLocations.normalMatrix,
-    false,
-    (normalMatrix: any)
-  );
+  // gl.uniformMatrix4fv(
+  //   programInfo.uniformLocations.normalMatrix,
+  //   false,
+  //   (normalMatrix: any)
+  // );
   gl.uniformMatrix4fv(
     programInfo.uniformLocations.modelViewMatrix,
     false,
     (modelViewMatrix: any)
   );
+  gl.lineWidth(3.0);
 
   {
     const type = gl.UNSIGNED_SHORT;
     const offset = 0;
-    gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
+    gl.drawElements(gl.LINES, vertexCount, type, offset);
   }
 }
 
