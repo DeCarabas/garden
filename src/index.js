@@ -1,6 +1,7 @@
 // @flow
 // @format
 const { mat4, vec3, vec4 } = require("gl-matrix");
+const { cube } = require("./geometry");
 const { itemExpr, makeRuleSet, rewrite } = require("./lsystem");
 const systems = require("./systems");
 
@@ -29,6 +30,12 @@ init();
 class RenderContext {
   origin: Vec3;
   ending: Vec3;
+  temp: Vec3;
+
+  stack;
+
+  triangle_positions;
+  triangle_indices;
 
   positions: Vec3[];
   colors: Vec4[];
@@ -38,6 +45,12 @@ class RenderContext {
   constructor() {
     this.origin = vec3.fromValues(0, 0, 0);
     this.ending = vec3.fromValues(0, 0, 0);
+    this.temp = vec3.create();
+
+    this.stack = [];
+
+    this.triangle_positions = [];
+    this.triangle_indices = [];
 
     this.positions = [];
     this.indices = [];
@@ -54,11 +67,45 @@ class RenderContext {
     this.indices.push(this.positions.length, this.positions.length + 1);
     this.positions.push(ts, te);
   }
+
+  vertex(matrix) {
+    this.positions.push(vec3.transformMat4(this.temp, this.origin, matrix));
+  }
+
+  pushPolygon() {
+    this.stack.push({
+      positions: this.positions,
+      indices: this.indices,
+      colors: this.colors,
+      vertexNormals: this.vertexNormals,
+    });
+    this.positions = [];
+    this.indices = [];
+    this.colors = [];
+    this.vertexNormals = [];
+  }
+
+  popPolygon() {
+    if (this.positions.length >= 3) {
+      const start = this.triangle_positions.length;
+      this.triangle_positions.push(...this.positions);
+      for (let i = 1; i < this.positions.length - 1; i++) {
+        this.triangle_indices.push(start, start + i, start + i + 1);
+      }
+    }
+
+    const { positions, indices, colors, vertexNormals } = this.stack.pop();
+    this.positions = positions;
+    this.indices = indices;
+    this.colors = colors;
+    this.vertexNormals = vertexNormals;
+  }
 }
 
 function render(state, context, config) {
   let { step_length, angle_delta } = config;
   const state_stack = [];
+  const poly_stack = [];
 
   // These head and left vectors are somewhat arbitrary?
   const head_vector = vec3.fromValues(0, 0, -1);
@@ -68,6 +115,7 @@ function render(state, context, config) {
 
   // TODO: Actually initialize by head/left/up?
   let current_matrix = mat4.create();
+  let current_polygon = [];
 
   vec3.scale(head_vector, head_vector, step_length);
 
@@ -97,6 +145,12 @@ function render(state, context, config) {
       state_stack.push(mat4.clone(current_matrix));
     } else if (current == "]") {
       current_matrix = state_stack.pop();
+    } else if (current == "{") {
+      context.pushPolygon();
+    } else if (current == ".") {
+      context.vertex(current_matrix);
+    } else if (current == "}") {
+      context.popPolygon();
     }
   }
 }
@@ -182,112 +236,6 @@ function loadShader(gl, type, source) {
   return shader;
 }
 
-const cube = (function() {
-  const positions = [
-    // Front face
-    vec3.fromValues(-0.5, -0.5, 0.5),
-    vec3.fromValues(0.5, -0.5, 0.5),
-    vec3.fromValues(0.5, 0.5, 0.5),
-    vec3.fromValues(-0.5, 0.5, 0.5),
-
-    // Back face
-    vec3.fromValues(-0.5, -0.5, -0.5),
-    vec3.fromValues(-0.5, 0.5, -0.5),
-    vec3.fromValues(0.5, 0.5, -0.5),
-    vec3.fromValues(0.5, -0.5, -0.5),
-
-    // Top face
-    vec3.fromValues(-0.5, 0.5, -0.5),
-    vec3.fromValues(-0.5, 0.5, 0.5),
-    vec3.fromValues(0.5, 0.5, 0.5),
-    vec3.fromValues(0.5, 0.5, -0.5),
-
-    // Bottom face
-    vec3.fromValues(-0.5, -0.5, -0.5),
-    vec3.fromValues(0.5, -0.5, -0.5),
-    vec3.fromValues(0.5, -0.5, 0.5),
-    vec3.fromValues(-0.5, -0.5, 0.5),
-
-    // Right face
-    vec3.fromValues(0.5, -0.5, -0.5),
-    vec3.fromValues(0.5, 0.5, -0.5),
-    vec3.fromValues(0.5, 0.5, 0.5),
-    vec3.fromValues(0.5, -0.5, 0.5),
-
-    // Left face
-    vec3.fromValues(-0.5, -0.5, -0.5),
-    vec3.fromValues(-0.5, -0.5, 0.5),
-    vec3.fromValues(-0.5, 0.5, 0.5),
-    vec3.fromValues(-0.5, 0.5, -0.5),
-  ];
-
-  const faceColors = [
-    vec4.fromValues(1.0, 1.0, 1.0, 1.0), // Front face: white
-    vec4.fromValues(1.0, 0.0, 0.0, 1.0), // Back face: red
-    vec4.fromValues(0.0, 1.0, 0.0, 1.0), // Top face: green
-    vec4.fromValues(0.0, 0.0, 1.0, 1.0), // Bottom face: blue
-    vec4.fromValues(1.0, 1.0, 0.0, 1.0), // Right face: yellow
-    vec4.fromValues(1.0, 0.0, 1.0, 1.0), // Left face: purple
-  ];
-  let colors = [];
-  for (let j = 0; j < faceColors.length; j++) {
-    const c = faceColors[j];
-    colors.push(c, c, c, c);
-  }
-
-  const vertexNormals = [
-    // Front
-    vec3.fromValues(0.0, 0.0, 1.0),
-    vec3.fromValues(0.0, 0.0, 1.0),
-    vec3.fromValues(0.0, 0.0, 1.0),
-    vec3.fromValues(0.0, 0.0, 1.0),
-
-    // Back
-    vec3.fromValues(0.0, 0.0, -1.0),
-    vec3.fromValues(0.0, 0.0, -1.0),
-    vec3.fromValues(0.0, 0.0, -1.0),
-    vec3.fromValues(0.0, 0.0, -1.0),
-
-    // Top
-    vec3.fromValues(0.0, 1.0, 0.0),
-    vec3.fromValues(0.0, 1.0, 0.0),
-    vec3.fromValues(0.0, 1.0, 0.0),
-    vec3.fromValues(0.0, 1.0, 0.0),
-
-    // Bottom
-    vec3.fromValues(0.0, -1.0, 0.0),
-    vec3.fromValues(0.0, -1.0, 0.0),
-    vec3.fromValues(0.0, -1.0, 0.0),
-    vec3.fromValues(0.0, -1.0, 0.0),
-
-    // Right
-    vec3.fromValues(1.0, 0.0, 0.0),
-    vec3.fromValues(1.0, 0.0, 0.0),
-    vec3.fromValues(1.0, 0.0, 0.0),
-    vec3.fromValues(1.0, 0.0, 0.0),
-
-    // Left
-    vec3.fromValues(-1.0, 0.0, 0.0),
-    vec3.fromValues(-1.0, 0.0, 0.0),
-    vec3.fromValues(-1.0, 0.0, 0.0),
-    vec3.fromValues(-1.0, 0.0, 0.0),
-  ];
-
-  // This array defines each face as two triangles, using the
-  // indices into the vertex array to specify each triangle's
-  // position.
-  const indices = [
-    ...[...[0, 1, 2], ...[0, 2, 3]], // front
-    ...[...[4, 5, 6], ...[4, 6, 7]], // back
-    ...[...[8, 9, 10], ...[8, 10, 11]], // top
-    ...[...[12, 13, 14], ...[12, 14, 15]], // bottom
-    ...[...[16, 17, 18], ...[16, 18, 19]], // right
-    ...[...[20, 21, 22], ...[20, 22, 23]], // left
-  ];
-
-  return { positions, colors, vertexNormals, indices };
-})();
-
 function createBuffers(gl) {
   const positionBuffer = gl.createBuffer();
   const colorBuffer = gl.createBuffer();
@@ -343,6 +291,7 @@ function setup(gl) {
   gl.clearDepth(1.0);
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
+  gl.lineWidth(3.0);
 
   const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
   const programInfo = {
@@ -415,8 +364,6 @@ function draw(gl, cubeRotation, plant) {
   const modelViewMatrix = mat4.create();
   mat4.lookAt(modelViewMatrix, eyePosition, center, [0, 0, -1]);
   mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation, [0, 0, 1]);
-  // mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, 0.0, -6.0]);
-  // mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation * 0.7, [0, 1, 0]);
 
   drawCube(gl, projectionMatrix, modelViewMatrix, plant.indices.length);
 }
@@ -498,7 +445,6 @@ function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
     false,
     (modelViewMatrix: any)
   );
-  gl.lineWidth(3.0);
 
   {
     const type = gl.UNSIGNED_SHORT;
