@@ -382,70 +382,52 @@ function rewrite(state: item[], rules: rule_set): item[] {
   return result;
 }
 
-const CH = 900;
-const CT = 0.4;
-const ST = 3.9;
-const full_pattern = {
-  initial: [
-    ["-", [90]],
-    ["F", [0, 0, CH]],
-    ["F", [4, 1, CH]],
-    ["F", [0, 0, CH]],
-  ],
-  rules: makeRuleSet({
-    ignore: ["f", "~", "H"],
-    rules: {
-      F: [
+function parseItemExpr(rule_value: string): item_expr[] {
+  // Symbols stand alone, whitespace is ignored, everything between
+  // parenthesis are treated as a single symbol.
+  const symbols = [];
+  let i = 0;
+  while (i < rule_value.length) {
+    switch (rule_value[i]) {
+      case " ":
+        break;
+      case "(":
         {
-          variables: ["s", "t", "c"],
-          predicate: ["&&", ["==", "t", 1], [">=", "s", 6]],
-          next: [
-            ["F", [["*", 2, ["/", "s", 3]], 2, "c"]],
-            ["f", [1]],
-            ["F", [["/", "s", 3], 1, "c"]],
-          ],
-        },
-        {
-          variables: ["s", "t", "c"],
-          predicate: ["&&", ["==", "t", 2], [">=", "s", 6]],
-          next: [
-            ["F", [["/", "s", 3], 2, "c"]],
-            ["f", [1]],
-            ["F", [["*", 2, ["/", "s", 3]], 1, "c"]],
-          ],
-        },
-        {
-          variables: ["s", "t", "c"],
-          left_context: [["F", "h", "i", "k"]],
-          right_context: [["F", "o", "p", "r"]],
-          predicate: ["||", [">", "s", ST], [">", "c", CT]],
-          next: [
-            [
-              "F",
-              [
-                ["+", "s", 0.1],
-                "t",
-                ["+", "c", ["*", 0.25, ["+", "k", ["-", "r", ["*", 3, "c"]]]]],
-              ],
-            ],
-          ],
-        },
-      ],
-      H: [
-        {
-          variables: ["s"],
-          predicate: ["<", "s", 3],
-          next: [["H", ["*", "s", 1.1]]],
-        },
-      ],
-    },
-  }),
-};
+          i++;
+          const start = i;
+          while (i < rule_value.length && rule_value[i] != ")") {
+            i++;
+          }
+          symbols.push([rule_value.substr(start, i - start), []]);
+        }
+        break;
+      default:
+        symbols.push([rule_value[i], []]);
+        break;
+    }
+    i++;
+  }
+  return symbols;
+}
+
+function itemExpr(chunks: string[], ...vals: any[]): item_expr[] {
+  // One big string...
+  let rule_value = "";
+  for (let i = 0; i < chunks.length; i++) {
+    rule_value += chunks[i];
+    if (i < vals.length) {
+      rule_value += vals[i].toString();
+    }
+  }
+  return parseItemExpr(rule_value);
+}
 
 module.exports = {
   evalExpression,
+  itemExpr,
   makeRule,
   makeRuleSet,
+  parseItemExpr,
   rewrite,
   tryBindRule,
 };

@@ -1,104 +1,10 @@
 // @flow
 // @format
 const { mat4, vec3, vec4 } = require("gl-matrix");
-const { makeRuleSet, rewrite } = require("./lsystem");
+const { itemExpr, makeRuleSet, rewrite } = require("./lsystem");
 
 import type { item_expr } from "./lsystem";
 import type { Mat4, Vec3, Vec4 } from "gl-matrix";
-
-type production = {| probability: number, value: string[] |};
-
-function parseItemExpr(rule_value: string): item_expr[] {
-  // Symbols stand alone, whitespace is ignored, everything between
-  // parenthesis are treated as a single symbol.
-  const symbols = [];
-  let i = 0;
-  while (i < rule_value.length) {
-    switch (rule_value[i]) {
-      case " ":
-        break;
-      case "(":
-        {
-          i++;
-          const start = i;
-          while (i < rule_value.length && rule_value[i] != ")") {
-            i++;
-          }
-          symbols.push([rule_value.substr(start, i - start), []]);
-        }
-        break;
-      default:
-        symbols.push([rule_value[i], []]);
-        break;
-    }
-    i++;
-  }
-  return symbols;
-}
-
-function itemExpr(chunks: string[], ...vals: any[]) {
-  // One big string...
-  let rule_value = "";
-  for (let i = 0; i < chunks.length; i++) {
-    rule_value += chunks[i];
-    if (i < vals.length) {
-      rule_value += vals[i].toString();
-    }
-  }
-  return parseItemExpr(rule_value);
-}
-
-// parse a rules dictionary into a more usable form.
-function parse_rules(rule_dictionary: {
-  [string]: string | string[],
-}): { [string]: production[] } {
-  function parse_string(rule_value: string) {
-    // Symbols stand alone, whitespace is ignored, everything between
-    // parenthesis are treated as a single symbol.
-    const symbols = [];
-    let i = 0;
-    while (i < rule_value.length) {
-      switch (rule_value[i]) {
-        case " ":
-          break;
-        case "(":
-          {
-            i++;
-            const start = i;
-            while (i < rule_value.length && rule_value[i] != ")") {
-              i++;
-            }
-            symbols.push(rule_value.substr(start, i - start));
-          }
-          break;
-        default:
-          symbols.push(rule_value[i]);
-          break;
-      }
-      i++;
-    }
-    return symbols;
-  }
-
-  const result = {};
-  for (const rule in rule_dictionary) {
-    let new_value;
-    let rule_value = rule_dictionary[rule];
-    if (typeof rule_value === "string") {
-      new_value = [{ probability: 1, value: parse_string(rule_value) }];
-    } else if (rule_value instanceof Array) {
-      new_value = rule_value.map(r => {
-        return { probability: 1.0 / rule_value.length, value: parse_string(r) };
-      });
-    } else {
-      throw Error(
-        "Not supported: rule of type " + typeof rule_value + ": " + rule_value
-      );
-    }
-    result[rule] = new_value;
-  }
-  return result;
-}
 
 // Here are a gallery of systems that I'm playing with!
 const systems = {
@@ -116,23 +22,27 @@ const systems = {
 
   // Hexagonal gosper curve (not right)
   hex_gosper: {
-    initial: ["F", "F1"],
+    initial: [["F", []], ["F1", []]],
     angle: toRadians(60),
     initial_steps: 4,
-    rules: parse_rules({
-      F1: "F(F1)+F(Fr)++F(Fr)-F(F1)--F(F1)F(F1)-F(Fr)+",
-      Fr: "-F(F1)+F(Fr)F(Fr)++F(Fr)+F(F1)--F(F1)-F(Fr)",
+    rules: makeRuleSet({
+      rules: {
+        F1: [{ next: itemExpr`F(F1)+F(Fr)++F(Fr)-F(F1)--F(F1)F(F1)-F(Fr)+` }],
+        Fr: [{ next: itemExpr`-F(F1)+F(Fr)F(Fr)++F(Fr)+F(F1)--F(F1)-F(Fr)` }],
+      },
     }),
   },
 
   // Two-dimensional hilbert curve
   hilbert2d: {
-    initial: ["L"],
+    initial: [["L", []]],
     angle: toRadians(90),
     initial_steps: 3,
-    rules: parse_rules({
-      L: "+RF-LFL-FR+",
-      R: "-LF+RFR+FL-",
+    rules: makeRuleSet({
+      rules: {
+        L: [{ next: itemExpr`+RF-LFL-FR+` }],
+        R: [{ next: itemExpr`-LF+RFR+FL-` }],
+      },
     }),
   },
 
@@ -143,22 +53,24 @@ const systems = {
     initial_steps: 2,
     rules: makeRuleSet({
       rules: {
-        A: [{ next: parseItemExpr("B-F+CFC+F-D&F^D-F+&&CFC+F+B//") }],
-        B: [{ next: parseItemExpr("A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//") }],
-        C: [{ next: parseItemExpr("|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//") }],
-        D: [{ next: parseItemExpr("|CFB-F+B|FA&F^A&&FB-F+B|FC//") }],
+        A: [{ next: itemExpr`B-F+CFC+F-D&F^D-F+&&CFC+F+B//` }],
+        B: [{ next: itemExpr`A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//` }],
+        C: [{ next: itemExpr`|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//` }],
+        D: [{ next: itemExpr`|CFB-F+B|FA&F^A&&FB-F+B|FC//` }],
       },
     }),
   },
 
   // Example 'f' of axial trees, kinda pretty.
   axialf: {
-    initial: ["X"],
+    initial: [["X", []]],
     angle: toRadians(22.5),
     initial_steps: 5,
-    rules: parse_rules({
-      X: "F-[[X]+X]+F[+FX]-X",
-      F: "FF",
+    rules: makeRuleSet({
+      rules: {
+        X: [{ next: itemExpr`F-[[X]+X]+F[+FX]-X` }],
+        F: [{ next: itemExpr`FF` }],
+      },
     }),
   },
 
@@ -166,14 +78,16 @@ const systems = {
   // This one has some instructions for colors and shapes which I haven't
   // implemented yet.
   first_bush: {
-    initial: ["A"],
+    initial: [["A", []]],
     angle: toRadians(22.5),
     initial_steps: 7,
-    rules: parse_rules({
-      A: "[&FL!A]/////'[&FL!A]///////'[&FL!A]",
-      F: "S/////F",
-      S: "FL",
-      L: "['''^^{-f+f+f-|-f+f+f}]",
+    rules: makeRuleSet({
+      rules: {
+        A: [{ next: itemExpr`[&FL!A]/////'[&FL!A]///////'[&FL!A]` }],
+        F: [{ next: itemExpr`S/////F` }],
+        S: [{ next: itemExpr`FL` }],
+        L: [{ next: itemExpr`['''^^{-f+f+f-|-f+f+f}]` }],
+      },
     }),
   },
 
@@ -197,7 +111,7 @@ const systems = {
             next: itemExpr`F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)`,
           },
         ],
-        seg: [{ next: parseItemExpr("(seg) F (seg)") }],
+        seg: [{ next: itemExpr`(seg) F (seg)` }],
         leaf: [{ next: itemExpr`[' { + f - ff - f + | + f - ff - f } ]` }],
         flower: [
           {
@@ -214,11 +128,17 @@ const systems = {
   },
 
   stochastic: {
-    initial: ["F"],
+    initial: [["F", []]],
     angle: toRadians(22.5),
     initial_steps: 5,
-    rules: parse_rules({
-      F: ["F[+F]F[-F]F", "F[+F]F", "F[-F]F"],
+    rules: makeRuleSet({
+      rules: {
+        F: [
+          { next: itemExpr`F[+F]F[-F]F` },
+          { next: itemExpr`F[+F]F` },
+          { next: itemExpr`F[-F]F` },
+        ],
+      },
     }),
   },
 
