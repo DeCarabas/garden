@@ -84,7 +84,7 @@ function evalExpression(expr: expr, env: { [var_id]: value }): value {
 type item_id = string;
 
 // A single item in our l-system is a tuple of an ID and a set of values.
-type item = [item_id, value[]];
+export type item = [item_id, value[]];
 
 // Context rules are a tuple of an ID and a list of variables. Such a rule
 // "matches" against an item if the ID of the rule matches the ID of the
@@ -305,7 +305,7 @@ function tryBindRule(
   return bindings;
 }
 
-type rule_set = { [item_id]: rule[] };
+export type rule_set = { [item_id]: rule[] };
 
 function makeRuleSet({
   ignore,
