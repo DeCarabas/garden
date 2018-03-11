@@ -174,7 +174,12 @@ const systems: { [string]: system } = {
           { next: itemExpr`(seg) F (seg)` },
           { next: itemExpr`(seg)` },
         ],
-        leaf: [{ next: itemExpr`[' { + f - ff - f + | + f - ff - f } ]` }],
+        leaf: [
+          {
+            next: itemExpr`[' { + f . - ff . - f . + | + f . - ff . - f . } ]`,
+            // next: itemExpr`[' + F - FF - F + | + F - FF - F ]`,
+          },
+        ],
         flower: [
           {
             next: itemExpr`
@@ -184,7 +189,10 @@ const systems: { [string]: system } = {
           },
         ],
         pedicel: [{ next: itemExpr`FF` }],
-        wedge: [{ next: itemExpr`['^F][{&&&&-f+f|-f+f}]` }],
+        wedge: [
+          { next: itemExpr`['^F][{&&&&-f.+f.|-f.+f.}]` },
+          //{ next: itemExpr`['^F][{&&&&-f+f|-f+f}]` }
+        ],
       },
     }),
   },

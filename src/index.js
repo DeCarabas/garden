@@ -1,7 +1,6 @@
 // @flow
 // @format
 const { mat4, vec3, vec4 } = require("gl-matrix");
-const { cube } = require("./geometry");
 const { itemExpr, makeRuleSet, rewrite } = require("./lsystem");
 const systems = require("./systems");
 
@@ -38,8 +37,6 @@ class RenderContext {
   triangle_indices;
 
   positions: Vec3[];
-  colors: Vec4[];
-  vertexNormals: Vec3[];
   indices: number[];
 
   constructor() {
@@ -54,8 +51,6 @@ class RenderContext {
 
     this.positions = [];
     this.indices = [];
-    this.colors = [];
-    this.vertexNormals = [];
   }
 
   line(matrix, length) {
@@ -69,20 +64,16 @@ class RenderContext {
   }
 
   vertex(matrix) {
-    this.positions.push(vec3.transformMat4(this.temp, this.origin, matrix));
+    this.positions.push(vec3.transformMat4(vec3.create(), this.origin, matrix));
   }
 
   pushPolygon() {
     this.stack.push({
       positions: this.positions,
       indices: this.indices,
-      colors: this.colors,
-      vertexNormals: this.vertexNormals,
     });
     this.positions = [];
     this.indices = [];
-    this.colors = [];
-    this.vertexNormals = [];
   }
 
   popPolygon() {
@@ -94,63 +85,61 @@ class RenderContext {
       }
     }
 
-    const { positions, indices, colors, vertexNormals } = this.stack.pop();
+    const { positions, indices } = this.stack.pop();
     this.positions = positions;
     this.indices = indices;
-    this.colors = colors;
-    this.vertexNormals = vertexNormals;
   }
-}
 
-function render(state, context, config) {
-  let { step_length, angle_delta } = config;
-  const state_stack = [];
-  const poly_stack = [];
+  render(state, config) {
+    let { step_length, angle_delta } = config;
+    const state_stack = [];
+    const poly_stack = [];
 
-  // These head and left vectors are somewhat arbitrary?
-  const head_vector = vec3.fromValues(0, 0, -1);
-  const left_vector = vec3.fromValues(-1, 0, 0);
-  const up_vector = vec3.create();
-  vec3.cross(up_vector, head_vector, left_vector);
+    // These head and left vectors are somewhat arbitrary?
+    const head_vector = vec3.fromValues(0, 0, -1);
+    const left_vector = vec3.fromValues(-1, 0, 0);
+    const up_vector = vec3.create();
+    vec3.cross(up_vector, head_vector, left_vector);
 
-  // TODO: Actually initialize by head/left/up?
-  let current_matrix = mat4.create();
-  let current_polygon = [];
+    // TODO: Actually initialize by head/left/up?
+    let current_matrix = mat4.create();
+    let poly_depth = 0;
 
-  vec3.scale(head_vector, head_vector, step_length);
+    vec3.scale(head_vector, head_vector, step_length);
 
-  for (let i = 0; i < state.length && i < DEBUG_RENDER_LIMIT; i++) {
-    const [current, _vals] = state[i];
-    if (current == "F") {
-      // Draw a "line" (always draws along -Z, which is also head.)
-      context.line(current_matrix, step_length);
-      mat4.translate(current_matrix, current_matrix, head_vector);
-    } else if (current == "f") {
-      mat4.translate(current_matrix, current_matrix, head_vector);
-    } else if (current == "+") {
-      mat4.rotate(current_matrix, current_matrix, angle_delta, up_vector);
-    } else if (current == "-") {
-      mat4.rotate(current_matrix, current_matrix, -angle_delta, up_vector);
-    } else if (current == "&") {
-      mat4.rotate(current_matrix, current_matrix, angle_delta, left_vector);
-    } else if (current == "^") {
-      mat4.rotate(current_matrix, current_matrix, -angle_delta, left_vector);
-    } else if (current == "\\") {
-      mat4.rotate(current_matrix, current_matrix, angle_delta, head_vector);
-    } else if (current == "/") {
-      mat4.rotate(current_matrix, current_matrix, -angle_delta, head_vector);
-    } else if (current == "|") {
-      mat4.rotate(current_matrix, current_matrix, Math.PI, up_vector);
-    } else if (current == "[") {
-      state_stack.push(mat4.clone(current_matrix));
-    } else if (current == "]") {
-      current_matrix = state_stack.pop();
-    } else if (current == "{") {
-      context.pushPolygon();
-    } else if (current == ".") {
-      context.vertex(current_matrix);
-    } else if (current == "}") {
-      context.popPolygon();
+    for (let i = 0; i < state.length && i < DEBUG_RENDER_LIMIT; i++) {
+      const [current, _vals] = state[i];
+      if (current == "F") {
+        // Draw a "line" (always draws along -Z, which is also head.)
+        this.line(current_matrix, step_length);
+        mat4.translate(current_matrix, current_matrix, head_vector);
+      } else if (current == "f") {
+        mat4.translate(current_matrix, current_matrix, head_vector);
+      } else if (current == "+") {
+        mat4.rotate(current_matrix, current_matrix, angle_delta, up_vector);
+      } else if (current == "-") {
+        mat4.rotate(current_matrix, current_matrix, -angle_delta, up_vector);
+      } else if (current == "&") {
+        mat4.rotate(current_matrix, current_matrix, angle_delta, left_vector);
+      } else if (current == "^") {
+        mat4.rotate(current_matrix, current_matrix, -angle_delta, left_vector);
+      } else if (current == "\\") {
+        mat4.rotate(current_matrix, current_matrix, angle_delta, head_vector);
+      } else if (current == "/") {
+        mat4.rotate(current_matrix, current_matrix, -angle_delta, head_vector);
+      } else if (current == "|") {
+        mat4.rotate(current_matrix, current_matrix, Math.PI, up_vector);
+      } else if (current == "[") {
+        state_stack.push(mat4.clone(current_matrix));
+      } else if (current == "]") {
+        current_matrix = state_stack.pop();
+      } else if (current == "{") {
+        this.pushPolygon();
+      } else if (current == ".") {
+        this.vertex(current_matrix);
+      } else if (current == "}") {
+        this.popPolygon();
+      }
     }
   }
 }
@@ -162,37 +151,16 @@ function toRadians(degrees) {
 // HTML mechanics, WebGL bullshit.
 const vsSource = `
 attribute vec4 aVertexPosition;
-// attribute vec3 aVertexNormal;
-// attribute vec4 aVertexColor;
 
-// uniform mat4 uNormalMatrix;
 uniform mat4 uModelViewMatrix;
 uniform mat4 uProjectionMatrix;
 
-// varying lowp vec4 vColor;
-// varying highp vec4 vNormal;
-
 void main() {
   gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-  // vColor = aVertexColor;
-  // vNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
 }
 `;
 const fsSource = `
-  // varying lowp vec4 vColor;
-  // varying highp vec4 vNormal;
-
   void main() {
-    // highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
-    // highp vec3 directionalLightColor = vec3(1, 1, 1);
-    // highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
-
-    // highp float directional = max(dot(vNormal.xyz, directionalVector), 0.0);
-    // highp vec3 vLighting = ambientLight + (directionalLightColor * directional);
-
-    // gl_FragColor = vec4(vColor.rgb * vLighting, vColor.a);
-    //gl_FragColor = vec4(vLighting, 1.0);
-    //gl_FragColor = vColor;
     gl_FragColor = vec4(1,1,1,1);
   }
 `;
@@ -238,15 +206,11 @@ function loadShader(gl, type, source) {
 
 function createBuffers(gl) {
   const positionBuffer = gl.createBuffer();
-  const colorBuffer = gl.createBuffer();
-  const normalBuffer = gl.createBuffer();
   const indexBuffer = gl.createBuffer();
 
   return {
     position: positionBuffer,
-    color: colorBuffer,
     indices: indexBuffer,
-    normals: normalBuffer,
   };
 }
 
@@ -255,35 +219,40 @@ function fillBuffers(gl, buffers, obj) {
   for (let i = 0; i < obj.positions.length; i++) {
     positions.push(...obj.positions[i]);
   }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.position);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
-  const colors = [];
-  for (let i = 0; i < obj.colors.length; i++) {
-    colors.push(...obj.colors[i]);
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-
-  const normals = [];
-  for (let i = 0; i < obj.vertexNormals.length; i++) {
-    normals.push(...obj.vertexNormals[i]);
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.lines.indices);
   gl.bufferData(
     gl.ELEMENT_ARRAY_BUFFER,
     new Uint16Array(obj.indices),
     gl.STATIC_DRAW
   );
+
+  const tri_positions = [];
+  for (let i = 0; i < obj.triangle_positions.length; i++) {
+    tri_positions.push(...obj.triangle_positions[i]);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.position);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array(tri_positions),
+    gl.STATIC_DRAW
+  );
+
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);
+  gl.bufferData(
+    gl.ELEMENT_ARRAY_BUFFER,
+    new Uint16Array(obj.triangle_indices),
+    gl.STATIC_DRAW
+  );
 }
 
-function initBuffers(gl, obj) {
-  const buffers = createBuffers(gl);
-  fillBuffers(gl, buffers, obj);
-  return buffers;
+function initBuffers(gl) {
+  return {
+    lines: createBuffers(gl),
+    triangles: createBuffers(gl),
+  };
 }
 
 function setup(gl) {
@@ -298,15 +267,12 @@ function setup(gl) {
     program: shaderProgram,
     attribLocations: {
       vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      // vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
-      // vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
     },
     uniformLocations: {
       projectionMatrix: gl.getUniformLocation(
         shaderProgram,
         "uProjectionMatrix"
       ),
-      // normalMatrix: gl.getUniformLocation(shaderProgram, "uNormalMatrix"),
       modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
     },
   };
@@ -322,7 +288,7 @@ if (gardenContext == null) {
   throw Error("Cannot get GL context.");
 }
 const programInfo = setup(gardenContext);
-const buffers = initBuffers(gardenContext, cube);
+const buffers = initBuffers(gardenContext);
 
 const render_config = {
   step_length: 0.5,
@@ -331,11 +297,15 @@ const render_config = {
 
 function draw(gl, cubeRotation, plant) {
   // Step 1: Measure the boundaries of the plant.
-  let min = vec3.clone(plant.positions[0]);
-  let max = vec3.clone(plant.positions[0]);
+  let min = vec3.clone(plant.positions[0] || plant.triangle_positions[0]);
+  let max = vec3.clone(plant.positions[0] || plant.triangle_positions[0]);
   for (let i = 1; i < plant.positions.length; i++) {
     vec3.min(min, min, plant.positions[i]);
     vec3.max(max, max, plant.positions[i]);
+  }
+  for (let i = 0; i < plant.triangle_positions.length; i++) {
+    vec3.min(min, min, plant.triangle_positions[i]);
+    vec3.max(max, max, plant.triangle_positions[i]);
   }
 
   // Let's just look at the middle of the bounding box...
@@ -365,21 +335,30 @@ function draw(gl, cubeRotation, plant) {
   mat4.lookAt(modelViewMatrix, eyePosition, center, [0, 0, -1]);
   mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation, [0, 0, 1]);
 
-  drawCube(gl, projectionMatrix, modelViewMatrix, plant.indices.length);
+  drawCube(
+    gl,
+    projectionMatrix,
+    modelViewMatrix,
+    plant.indices.length,
+    plant.triangle_indices.length
+  );
 }
 
-function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
-  const normalMatrix = mat4.create();
-  mat4.invert(normalMatrix, modelViewMatrix);
-  mat4.transpose(normalMatrix, normalMatrix);
-
+function drawCube(
+  gl,
+  projectionMatrix,
+  modelViewMatrix,
+  lineVertexCount,
+  triangleVertexCount
+) {
+  // == Lines ================================================================
   {
     const numComponents = 3;
     const type = gl.FLOAT;
     const normalize = false;
     const stride = 0;
     const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.position);
     gl.vertexAttribPointer(
       programInfo.attribLocations.vertexPosition,
       numComponents,
@@ -391,43 +370,7 @@ function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
   }
 
-  // {
-  //   const numComponents = 3;
-  //   const type = gl.FLOAT;
-  //   const normalize = false;
-  //   const stride = 0;
-  //   const offset = 0;
-  //   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normals);
-  //   gl.vertexAttribPointer(
-  //     programInfo.attribLocations.vertexNormal,
-  //     numComponents,
-  //     type,
-  //     normalize,
-  //     stride,
-  //     offset
-  //   );
-  //   gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-  // }
-
-  // {
-  //   const numComponents = 4;
-  //   const type = gl.FLOAT;
-  //   const normalize = false;
-  //   const stride = 0;
-  //   const offset = 0;
-  //   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-  //   gl.vertexAttribPointer(
-  //     programInfo.attribLocations.vertexColor,
-  //     numComponents,
-  //     type,
-  //     normalize,
-  //     stride,
-  //     offset
-  //   );
-  //   gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-  // }
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.lines.indices);
 
   gl.useProgram(programInfo.program);
   gl.uniformMatrix4fv(
@@ -435,11 +378,6 @@ function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
     false,
     (projectionMatrix: any)
   );
-  // gl.uniformMatrix4fv(
-  //   programInfo.uniformLocations.normalMatrix,
-  //   false,
-  //   (normalMatrix: any)
-  // );
   gl.uniformMatrix4fv(
     programInfo.uniformLocations.modelViewMatrix,
     false,
@@ -449,7 +387,46 @@ function drawCube(gl, projectionMatrix, modelViewMatrix, vertexCount) {
   {
     const type = gl.UNSIGNED_SHORT;
     const offset = 0;
-    gl.drawElements(gl.LINES, vertexCount, type, offset);
+    gl.drawElements(gl.LINES, lineVertexCount, type, offset);
+  }
+
+  // == Triangles =============================================================
+  {
+    const numComponents = 3;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.position);
+    gl.vertexAttribPointer(
+      programInfo.attribLocations.vertexPosition,
+      numComponents,
+      type,
+      normalize,
+      stride,
+      offset
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+  }
+
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);
+
+  gl.useProgram(programInfo.program);
+  gl.uniformMatrix4fv(
+    programInfo.uniformLocations.projectionMatrix,
+    false,
+    (projectionMatrix: any)
+  );
+  gl.uniformMatrix4fv(
+    programInfo.uniformLocations.modelViewMatrix,
+    false,
+    (modelViewMatrix: any)
+  );
+
+  {
+    const type = gl.UNSIGNED_SHORT;
+    const offset = 0;
+    gl.drawElements(gl.TRIANGLES, triangleVertexCount, type, offset);
   }
 }
 
@@ -457,7 +434,7 @@ let plant;
 function updatePlant() {
   plant = new RenderContext();
   window.DEBUG_PLANT = plant;
-  render(state, plant, render_config);
+  plant.render(state, render_config);
   fillBuffers(gardenContext, buffers, plant);
 }
 updatePlant();
