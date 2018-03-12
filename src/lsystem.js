@@ -259,8 +259,8 @@ function tryBindContext(
 // Applying a rules can fail for a lot of different reasons, including a failure
 // to match either the left or right context, or failure to match the predicate,
 // or failure to have the right number of parameters. If the rule applies
-// successfully, this function returns the bindings for the successful application
-// of the rule, otherwise it returns null.
+// successfully, this function returns the bindings for the successful
+// application of the rule, otherwise it returns null.
 function tryBindRule(
   rule: rule,
   parameters: value[],
@@ -307,6 +307,8 @@ function tryBindRule(
 
 export type rule_set = { [item_id]: rule[] };
 
+// A helper function for making rule sets, along with propagating ignore sets
+// into each rule.
 function makeRuleSet({
   ignore,
   rules,
@@ -324,23 +326,28 @@ function makeRuleSet({
   return result;
 }
 
-function pickMatch(matches) {
-  if (matches.length == 1) {
-    return matches[0];
-  }
-
-  const total = matches.reduce((p, m) => p + m.rule.probability, 0);
-  let pick = Math.random() * total;
-  for (let j = 0; j < matches.length; j++) {
-    pick -= matches[j].rule.probability;
-    if (pick <= 0) {
-      return matches[j];
-    }
-  }
-  return matches[matches.length - 1];
-}
-
+// Rewrite an input string given an L-system.
+// This is the heart of the L-system; this is what makes it go. Call this in
+// a loop to evolve the system.
 function rewrite(state: item[], rules: rule_set): item[] {
+  // Select a match at random from the lsit of supplied matches, respecting
+  // individual rule probabilities.
+  function pickMatch(matches) {
+    if (matches.length == 1) {
+      return matches[0];
+    }
+
+    const total = matches.reduce((p, m) => p + m.rule.probability, 0);
+    let pick = Math.random() * total;
+    for (let j = 0; j < matches.length; j++) {
+      pick -= matches[j].rule.probability;
+      if (pick <= 0) {
+        return matches[j];
+      }
+    }
+    return matches[matches.length - 1];
+  }
+
   const left = [];
   const stack = [];
   const result = [];
@@ -382,30 +389,94 @@ function rewrite(state: item[], rules: rule_set): item[] {
   return result;
 }
 
+// Parse a string into a list of item exprs. A convenience for authoring.
+// The grammar is a little bit odd: by default (at the top level) individual
+// symbols stand alone. Parenthesis are handled specially: within a parenthesis
+// symbols must be separated by whitespace. Nested parenthesis represent
+// S-expressions to be evaluated.
 function parseItemExpr(rule_value: string): item_expr[] {
+  let i = 0;
+  function isSpace(code) {
+    return code == /* */ 32 || code == /*\n*/ 10 || code == /*\r*/ 13;
+  }
+  function isDigit(code) {
+    return code >= /*0*/ 48 && code <= /*9*/ 57;
+  }
+  function isSymbolCharacter(code) {
+    return code != /*(*/ 40 && code != /*)*/ 41 && !isSpace(code);
+  }
+  function skipWhiteSpace() {
+    while (i < rule_value.length && isSpace(rule_value.charCodeAt(i))) {
+      i++;
+    }
+  }
+  function parseSExpression() {
+    skipWhiteSpace();
+    const code = rule_value.charCodeAt(i);
+    if (code == /*(*/ 40) {
+      // Nested sexpr.
+      i++;
+      let result = [];
+      while (i < rule_value.length && rule_value.charCodeAt(i) != /*)*/ 41) {
+        result.push(parseSExpression());
+      }
+      if (i < rule_value.length) {
+        i++;
+      }
+      return result;
+    } else if (isDigit(code)) {
+      // Number.
+      let start = i;
+      i++;
+      while (i < rule_value.length && isDigit(rule_value.charCodeAt(i))) {
+        i++;
+      }
+      return Number.parseInt(rule_value.substr(start, i - start));
+    } else {
+      // Symbol.
+      let start = i;
+      i++;
+      while (
+        i < rule_value.length &&
+        isSymbolCharacter(rule_value.charCodeAt(i))
+      ) {
+        i++;
+      }
+      return rule_value.substr(start, i - start);
+    }
+  }
+  function parseExpr(): item_expr {
+    let result = parseSExpression();
+    if (typeof result == "string") {
+      return [result, []];
+    } else if (typeof result == "number") {
+      throw Error("No bare numbers");
+    } else {
+      const symbol = result[0];
+      if (typeof symbol != "string") {
+        throw Error("First thingy in a paren must be a string dummy");
+      } else {
+        return [symbol, result.slice(1)];
+      }
+    }
+  }
+
   // Symbols stand alone, whitespace is ignored, everything between
   // parenthesis are treated as a single symbol.
   const symbols = [];
-  let i = 0;
   while (i < rule_value.length) {
-    switch (rule_value[i]) {
-      case " ":
-        break;
-      case "(":
-        {
+    skipWhiteSpace();
+    if (i < rule_value.length) {
+      switch (rule_value.charCodeAt(i)) {
+        case /*(*/ 40:
+          symbols.push(parseExpr());
+          break;
+        default:
+          symbols.push([rule_value[i], []]);
           i++;
-          const start = i;
-          while (i < rule_value.length && rule_value[i] != ")") {
-            i++;
-          }
-          symbols.push([rule_value.substr(start, i - start), []]);
-        }
-        break;
-      default:
-        symbols.push([rule_value[i], []]);
-        break;
+          break;
+      }
     }
-    i++;
   }
   return symbols;
 }

@@ -4,6 +4,7 @@ const {
   evalExpression,
   makeRule,
   makeRuleSet,
+  parseItemExpr,
   rewrite,
   tryBindRule,
 } = require("../lsystem");
@@ -281,4 +282,22 @@ describe("rewrite", () => {
     it("selects 'c' sometimes", () =>
       expect(final.findIndex(i => i[0] == "c")).not.toEqual(-1));
   });
+});
+
+describe("parseItemExpr", () => {
+  const cases = [
+    ["abcd", [["a", []], ["b", []], ["c", []], ["d", []]]],
+    ["a(yo)b", [["a", []], ["yo", []], ["b", []]]],
+    ["(yo 1)", [["yo", [1]]]],
+    ["(yo (+ 1 1))", [["yo", [["+", 1, 1]]]]],
+    ["(yo (+ x (* 2 y)))", [["yo", [["+", "x", ["*", 2, "y"]]]]]],
+    ["(a x y)", [["a", ["x", "y"]]]],
+  ];
+
+  for (let i = 0; i < cases.length; i++) {
+    const [actual, expected] = cases[i];
+    it("parses " + actual, () =>
+      expect(parseItemExpr(actual)).toEqual(expected)
+    );
+  }
 });

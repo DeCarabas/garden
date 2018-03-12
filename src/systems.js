@@ -23,7 +23,7 @@ const systems: { [string]: system } = {
     initial_steps: 0,
     rules: makeRuleSet({
       rules: {
-        F: [{ next: itemExpr`FF` }],
+        F: [{ next: itemExpr`F F` }],
       },
     }),
   },
@@ -176,8 +176,9 @@ const systems: { [string]: system } = {
         ],
         leaf: [
           {
-            next: itemExpr`[' { + f . - ff . - f . + | + f . - ff . - f . } ]`,
-            // next: itemExpr`[' + F - FF - F + | + F - FF - F ]`,
+            next: itemExpr`
+              [{(color 00FF00) + f . - ff . - f . + | + f . - ff . - f .}]
+            `,
           },
         ],
         flower: [
@@ -190,8 +191,11 @@ const systems: { [string]: system } = {
         ],
         pedicel: [{ next: itemExpr`FF` }],
         wedge: [
-          { next: itemExpr`['^F][{&&&&-f.+f.|-f.+f.}]` },
-          //{ next: itemExpr`['^F][{&&&&-f+f|-f+f}]` }
+          {
+            next: itemExpr`
+              ['^F][{(color 0000FF) & & & & - f . + f . | - f . + f .}]
+            `,
+          },
         ],
       },
     }),
