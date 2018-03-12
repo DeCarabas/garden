@@ -30,26 +30,32 @@ class RenderContext {
   origin: Vec3;
   ending: Vec3;
   temp: Vec3;
+  color: Vec4;
 
   stack;
 
   triangle_positions;
+  triangle_colors;
   triangle_indices;
 
   positions: Vec3[];
+  colors: Vec4[];
   indices: number[];
 
   constructor() {
     this.origin = vec3.fromValues(0, 0, 0);
     this.ending = vec3.fromValues(0, 0, 0);
     this.temp = vec3.create();
+    this.color = vec4.fromValues(1, 1, 1, 1);
 
     this.stack = [];
 
     this.triangle_positions = [];
+    this.triangle_colors = [];
     this.triangle_indices = [];
 
     this.positions = [];
+    this.colors = [];
     this.indices = [];
   }
 
@@ -60,34 +66,47 @@ class RenderContext {
     const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
 
     this.indices.push(this.positions.length, this.positions.length + 1);
+    this.colors.push(vec4.clone(this.color), vec4.clone(this.color));
     this.positions.push(ts, te);
   }
 
   vertex(matrix) {
     this.positions.push(vec3.transformMat4(vec3.create(), this.origin, matrix));
+    this.colors.push(vec4.clone(this.color));
   }
 
   pushPolygon() {
     this.stack.push({
       positions: this.positions,
+      colors: this.colors,
       indices: this.indices,
+      current_color: this.color,
     });
     this.positions = [];
+    this.colors = [];
     this.indices = [];
+    this.color = vec4.clone(this.color);
   }
 
   popPolygon() {
     if (this.positions.length >= 3) {
       const start = this.triangle_positions.length;
       this.triangle_positions.push(...this.positions);
+      this.triangle_colors.push(...this.colors);
       for (let i = 1; i < this.positions.length - 1; i++) {
         this.triangle_indices.push(start, start + i, start + i + 1);
       }
     }
 
-    const { positions, indices } = this.stack.pop();
+    const { positions, colors, indices, current_color } = this.stack.pop();
     this.positions = positions;
+    this.colors = colors;
     this.indices = indices;
+    this.color = current_color;
+  }
+
+  setColor(r, g, b) {
+    vec4.set(this.color, r, g, b, 1);
   }
 
   render(state, config) {
@@ -108,7 +127,7 @@ class RenderContext {
     vec3.scale(head_vector, head_vector, step_length);
 
     for (let i = 0; i < state.length && i < DEBUG_RENDER_LIMIT; i++) {
-      const [current, _vals] = state[i];
+      const [current, vals] = state[i];
       if (current == "F") {
         // Draw a "line" (always draws along -Z, which is also head.)
         this.line(current_matrix, step_length);
@@ -139,6 +158,20 @@ class RenderContext {
         this.vertex(current_matrix);
       } else if (current == "}") {
         this.popPolygon();
+      } else if (current == "color") {
+        if (vals.length == 3) {
+          const [r, g, b] = vals;
+          if (
+            typeof r != "number" ||
+            typeof g != "number" ||
+            typeof b != "number"
+          ) {
+            throw Error("Args to color must be numbers");
+          }
+          this.setColor(r, g, b);
+        } else {
+          throw Error("Wrong number of arguments to color");
+        }
       }
     }
   }
@@ -151,18 +184,24 @@ function toRadians(degrees) {
 // HTML mechanics, WebGL bullshit.
 const vsSource = `
 attribute vec4 aVertexPosition;
+attribute vec4 aVertexColor;
 
 uniform mat4 uModelViewMatrix;
 uniform mat4 uProjectionMatrix;
 
+varying lowp vec4 vColor;
+
 void main() {
   gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+  vColor = aVertexColor;
 }
 `;
 const fsSource = `
-  void main() {
-    gl_FragColor = vec4(1,1,1,1);
-  }
+varying lowp vec4 vColor;
+
+void main() {
+  gl_FragColor = vColor;
+}
 `;
 
 function initShaderProgram(gl, vsSource, fsSource) {
@@ -207,9 +246,11 @@ function loadShader(gl, type, source) {
 function createBuffers(gl) {
   const positionBuffer = gl.createBuffer();
   const indexBuffer = gl.createBuffer();
+  const colorBuffer = gl.createBuffer();
 
   return {
     position: positionBuffer,
+    color: colorBuffer,
     indices: indexBuffer,
   };
 }
@@ -221,6 +262,13 @@ function fillBuffers(gl, buffers, obj) {
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.position);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+  const colors = [];
+  for (let i = 0; i < obj.colors.length; i++) {
+    colors.push(...obj.colors[i]);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.color);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.lines.indices);
   gl.bufferData(
@@ -239,6 +287,13 @@ function fillBuffers(gl, buffers, obj) {
     new Float32Array(tri_positions),
     gl.STATIC_DRAW
   );
+
+  const tri_colors = [];
+  for (let i = 0; i < obj.triangle_colors.length; i++) {
+    tri_colors.push(...obj.triangle_colors[i]);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.color);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tri_colors), gl.STATIC_DRAW);
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);
   gl.bufferData(
@@ -267,6 +322,7 @@ function setup(gl) {
     program: shaderProgram,
     attribLocations: {
       vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+      vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
     },
     uniformLocations: {
       projectionMatrix: gl.getUniformLocation(
@@ -370,6 +426,24 @@ function drawCube(
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
   }
 
+  {
+    const numComponents = 4;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.color);
+    gl.vertexAttribPointer(
+      programInfo.attribLocations.vertexColor,
+      numComponents,
+      type,
+      normalize,
+      stride,
+      offset
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+  }
+
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.lines.indices);
 
   gl.useProgram(programInfo.program);
@@ -407,6 +481,24 @@ function drawCube(
       offset
     );
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+  }
+
+  {
+    const numComponents = 4;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.color);
+    gl.vertexAttribPointer(
+      programInfo.attribLocations.vertexColor,
+      numComponents,
+      type,
+      normalize,
+      stride,
+      offset
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
   }
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);

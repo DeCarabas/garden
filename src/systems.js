@@ -177,7 +177,7 @@ const systems: { [string]: system } = {
         leaf: [
           {
             next: itemExpr`
-              [{(color 00FF00) + f . - ff . - f . + | + f . - ff . - f .}]
+              [{(color 0 1 0) + f . - ff . - f . + | + f . - ff . - f .}]
             `,
           },
         ],
@@ -193,7 +193,7 @@ const systems: { [string]: system } = {
         wedge: [
           {
             next: itemExpr`
-              ['^F][{(color 0000FF) & & & & - f . + f . | - f . + f .}]
+              ['^F][{(color 0 0 1) & & & & - f . + f . | - f . + f .}]
             `,
           },
         ],
