@@ -149,9 +149,14 @@ class RenderContext {
       } else if (current == "|") {
         mat4.rotate(current_matrix, current_matrix, Math.PI, up_vector);
       } else if (current == "[") {
-        state_stack.push(mat4.clone(current_matrix));
+        state_stack.push({
+          matrix: mat4.clone(current_matrix),
+          color: vec4.clone(this.color),
+        });
       } else if (current == "]") {
-        current_matrix = state_stack.pop();
+        const { matrix, color } = state_stack.pop();
+        current_matrix = matrix;
+        this.color = color;
       } else if (current == "{") {
         this.pushPolygon();
       } else if (current == ".") {

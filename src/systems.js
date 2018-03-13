@@ -159,6 +159,7 @@ const systems: { [string]: system } = {
         plant: [
           {
             next: itemExpr`
+              (color 0 1 0)
               (internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)
               [ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)
             `,
@@ -184,7 +185,7 @@ const systems: { [string]: system } = {
         flower: [
           {
             next: itemExpr`
-              [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////
+              [& & & (pedicel) / (wedge) //// (wedge) //// (wedge) ////
               (wedge) //// (wedge)]
             `,
           },
@@ -193,7 +194,7 @@ const systems: { [string]: system } = {
         wedge: [
           {
             next: itemExpr`
-              ['^F][{(color 0 0 1) & & & & - f . + f . | - f . + f .}]
+              [(color 1 1 1)^F][{(color 0 0 1) & & & & - f . + f . | - f . + f .}]
             `,
           },
         ],
