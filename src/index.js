@@ -215,11 +215,28 @@ class RenderContext {
 
           vec4.sub(tv1, tv1, tv0);
           vec4.sub(tv2, tv2, tv0);
-          vec3.cross((tv2: any), (tv2: any), (tv1: any));
+          vec3.cross((tv2: any), (tv1: any), (tv2: any));
 
           vec4.add(this.triangle_normals[ti0], this.triangle_normals[ti0], tv2);
           vec4.add(this.triangle_normals[ti1], this.triangle_normals[ti1], tv2);
           vec4.add(this.triangle_normals[ti2], this.triangle_normals[ti2], tv2);
+        }
+
+        // Stick in one more polygon, but the normals point the other way and
+        // they're wound in the opposite direction.
+        this.triangle_positions.push(...this.positions);
+        this.triangle_colors.push(...this.colors);
+        for (let i = 0; i < this.positions.length; i++) {
+          this.triangle_normals.push(
+            vec4.negate(vec4.create(), this.triangle_normals[start + i])
+          );
+        }
+        for (let i = 1; i < this.positions.length - 1; i++) {
+          const ti0 = start;
+          const ti1 = start + i;
+          const ti2 = start + i + 1;
+
+          this.triangle_indices.push(ti2, ti1, ti0);
         }
 
         // // Why am I normalizing the vectors on the CPU though? We could just
@@ -346,14 +363,14 @@ varying lowp vec4 vColor;
 varying highp vec4 vNormal;
 
 void main() {
-  highp vec4 ambientLight = vec4(0.3, 0.3, 0.3, 1);
+  highp vec4 ambientLight = vec4(0.2, 0.2, 0.2, 1);
   highp vec4 directionalLightColor = vec4(1, 1, 1, 1);
-  highp vec4 directionalLightDirection = vec4(normalize(vec3(3, 3, 10)), 0);
+  highp vec4 directionalLightDirection = vec4(normalize(vec3(3, 10, 10)), 0);
 
-  highp vec4 lightColor =
-    (dot(directionalLightDirection, vNormal) * directionalLightColor) +
-    ambientLight;
+  highp float factor = max(dot(directionalLightDirection, vNormal), 0.0);
+  // highp float factor = abs(dot(directionalLightDirection, vNormal));
 
+  highp vec4 lightColor = (factor * directionalLightColor) + ambientLight;
   gl_FragColor = vec4(vColor.xyz * lightColor.xyz, vColor.w);
 }
 `;
