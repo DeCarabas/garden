@@ -316,7 +316,7 @@ function initBuffers(gl) {
 }
 
 function setup(gl) {
-  gl.clearColor(0, 0, 0, 1);
+  gl.clearColor(0, 0, 1, 1);
   gl.clearDepth(1.0);
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
