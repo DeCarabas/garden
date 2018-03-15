@@ -226,14 +226,14 @@ class RenderContext {
           vec4.add(this.triangle_normals[ti2], this.triangle_normals[ti2], tv2);
         }
 
-        // Why am I normalizing the vectors on the CPU though? We could just
-        // normalize them in the vector shader.
-        for (let i = 0; i < this.positions.length; i++) {
-          vec4.normalize(
-            this.triangle_normals[start + i],
-            this.triangle_normals[start + i]
-          );
-        }
+        // // Why am I normalizing the vectors on the CPU though? We could just
+        // // normalize them in the vector shader.
+        // for (let i = 0; i < this.positions.length; i++) {
+        //   vec4.normalize(
+        //     this.triangle_normals[start + i],
+        //     this.triangle_normals[start + i]
+        //   );
+        // }
       } finally {
         this.freeTempVec4(mark);
       }
@@ -330,23 +330,37 @@ function toRadians(degrees) {
 // HTML mechanics, WebGL bullshit.
 const vsSource = `
 attribute vec4 aVertexPosition;
+attribute vec4 aVertexNormal;
 attribute vec4 aVertexColor;
 
 uniform mat4 uModelViewMatrix;
 uniform mat4 uProjectionMatrix;
 
 varying lowp vec4 vColor;
+varying highp vec4 vNormal;
 
 void main() {
   gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
   vColor = aVertexColor;
+  vNormal = uModelViewMatrix * normalize(aVertexNormal);
 }
 `;
 const fsSource = `
 varying lowp vec4 vColor;
+varying highp vec4 vNormal;
 
 void main() {
-  gl_FragColor = vColor;
+  // TODO: Light with normal and light direction.
+  highp vec4 ambientLight = vec4(0.3, 0.3, 0.3, 1);
+  highp vec4 directionalLightColor = vec4(1, 1, 1, 1);
+  highp vec4 directionalLightDirection = vec4(normalize(vec3(1, 1, -1)), 0);
+
+  highp vec4 lightColor =
+    (abs(dot(directionalLightDirection, vNormal)) * directionalLightColor) +
+    ambientLight;
+
+  gl_FragColor = vec4(vColor.xyz * lightColor.xyz, 1);
+  //gl_FragColor = vColor;
 }
 `;
 
@@ -391,11 +405,13 @@ function loadShader(gl, type, source) {
 
 function createBuffers(gl) {
   const positionBuffer = gl.createBuffer();
+  const normalBuffer = gl.createBuffer();
   const indexBuffer = gl.createBuffer();
   const colorBuffer = gl.createBuffer();
 
   return {
     position: positionBuffer,
+    normal: normalBuffer,
     color: colorBuffer,
     indices: indexBuffer,
   };
@@ -441,6 +457,13 @@ function fillBuffers(gl, buffers, obj) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.color);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tri_colors), gl.STATIC_DRAW);
 
+  const tri_normals = [];
+  for (let i = 0; i < obj.triangle_normals.length; i++) {
+    tri_normals.push(...obj.triangle_normals[i]);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.normal);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tri_normals), gl.STATIC_DRAW);
+
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);
   gl.bufferData(
     gl.ELEMENT_ARRAY_BUFFER,
@@ -468,6 +491,7 @@ function setup(gl) {
     program: shaderProgram,
     attribLocations: {
       vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+      vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
       vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
     },
     uniformLocations: {
@@ -645,6 +669,24 @@ function drawCube(
       offset
     );
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+  }
+
+  {
+    const numComponents = 4;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.normal);
+    gl.vertexAttribPointer(
+      programInfo.attribLocations.vertexNormal,
+      numComponents,
+      type,
+      normalize,
+      stride,
+      offset
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
   }
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);
