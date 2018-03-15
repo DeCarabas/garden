@@ -26,17 +26,59 @@ function init() {
 }
 init();
 
+const cyl = (function() {
+  const positions = [];
+  const normals = [];
+
+  const FACETS = 6;
+  const DIAMETER = 0.1;
+
+  const delta = Math.PI * 2 / FACETS;
+  const start = vec3.fromValues(DIAMETER / 2, 0, 0);
+  const norm = vec4.fromValues(1, 0, 0, 0);
+  for (let i = 0; i < FACETS; i++) {
+    const angle = i * delta;
+    const mat = mat4.fromZRotation(mat4.create(), angle);
+
+    positions.push(vec3.transformMat4(vec3.create(), start, mat));
+    normals.push(vec4.transformMat4(vec4.create(), norm, mat));
+  }
+
+  return {
+    positions: positions,
+    normals: normals,
+  };
+})();
+
+const cyl_indices = [
+  ...[0, 1, 2],
+  ...[1, 3, 2],
+  ...[2, 3, 4],
+  ...[3, 5, 4],
+  ...[4, 5, 6],
+  ...[5, 7, 6],
+  ...[6, 7, 8],
+  ...[7, 9, 8],
+  ...[8, 9, 10],
+  ...[9, 11, 10],
+  ...[10, 11, 0],
+  ...[11, 1, 0],
+];
+
 class RenderContext {
   origin: Vec3;
   ending: Vec3;
   temp: Vec3;
   color: Vec4;
+  direction;
+  temp_vec4;
 
   stack;
 
   triangle_positions;
   triangle_colors;
   triangle_indices;
+  triangle_normals;
 
   positions: Vec3[];
   colors: Vec4[];
@@ -47,12 +89,15 @@ class RenderContext {
     this.ending = vec3.fromValues(0, 0, 0);
     this.temp = vec3.create();
     this.color = vec4.fromValues(1, 1, 1, 1);
+    this.direction = vec4.fromValues(0, 0, 0, 0);
+    this.temp_vec4 = vec4.create();
 
     this.stack = [];
 
     this.triangle_positions = [];
     this.triangle_colors = [];
     this.triangle_indices = [];
+    this.triangle_normals = [];
 
     this.positions = [];
     this.colors = [];
@@ -60,14 +105,37 @@ class RenderContext {
   }
 
   line(matrix, length) {
-    this.ending[2] = -length;
+    const LINES_ARE_POLYGONS = true;
 
-    const ts = vec3.transformMat4(vec3.create(), this.origin, matrix);
-    const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
+    if (LINES_ARE_POLYGONS) {
+      this.direction[2] = -length;
+      vec4.transformMat4(this.temp_vec4, this.direction, matrix);
 
-    this.indices.push(this.positions.length, this.positions.length + 1);
-    this.colors.push(vec4.clone(this.color), vec4.clone(this.color));
-    this.positions.push(ts, te);
+      const start_index = this.triangle_positions.length;
+      const cyl_length = cyl.positions.length;
+      for (let i = 0; i < cyl_length; i++) {
+        const pt0 = vec3.transformMat4(vec3.create(), cyl.positions[i], matrix);
+        const pt1 = vec3.clone(pt0);
+        pt1[0] += this.temp_vec4[0];
+        pt1[1] += this.temp_vec4[1];
+        pt1[2] += this.temp_vec4[2];
+        this.triangle_positions.push(pt0, pt1);
+
+        const norm = vec4.transformMat4(vec4.create(), cyl.normals[i], matrix);
+        this.triangle_normals.push(norm, norm);
+
+        this.triangle_colors.push(this.color, this.color);
+      }
+      this.triangle_indices.push(...cyl_indices.map(i => i + start_index));
+    } else {
+      this.ending[2] = -length;
+      const ts = vec3.transformMat4(vec3.create(), this.origin, matrix);
+      const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
+
+      this.indices.push(this.positions.length, this.positions.length + 1);
+      this.colors.push(vec4.clone(this.color), vec4.clone(this.color));
+      this.positions.push(ts, te);
+    }
   }
 
   vertex(matrix) {
@@ -93,6 +161,10 @@ class RenderContext {
       const start = this.triangle_positions.length;
       this.triangle_positions.push(...this.positions);
       this.triangle_colors.push(...this.colors);
+      //
+      // TODO THIS BULLSHIT HERE NEEDS TO MAKE NORMALS BUT HOW???
+      // AVERAGE FACE NORMALS??? WHAT IS THIS 1999???
+      //
       for (let i = 1; i < this.positions.length - 1; i++) {
         this.triangle_indices.push(start, start + i, start + i + 1);
       }
@@ -316,7 +388,7 @@ function initBuffers(gl) {
 }
 
 function setup(gl) {
-  gl.clearColor(0, 0, 1, 1);
+  gl.clearColor(0, 0, 0, 1);
   gl.clearDepth(1.0);
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);

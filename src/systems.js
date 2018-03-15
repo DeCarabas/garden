@@ -19,11 +19,11 @@ const systems: { [string]: system } = {
   // debug
   debug: {
     initial: [["F", []]],
-    angle: toRadians(0),
+    angle: toRadians(45),
     initial_steps: 0,
     rules: makeRuleSet({
       rules: {
-        F: [{ next: itemExpr`F F` }],
+        F: [{ next: itemExpr`F + F` }],
       },
     }),
   },
