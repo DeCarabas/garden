@@ -70,8 +70,9 @@ class RenderContext {
   ending: Vec3;
   temp: Vec3;
   color: Vec4;
-  direction;
+
   temp_vec4;
+  temp_vec4_pos;
 
   stack;
 
@@ -89,8 +90,9 @@ class RenderContext {
     this.ending = vec3.fromValues(0, 0, 0);
     this.temp = vec3.create();
     this.color = vec4.fromValues(1, 1, 1, 1);
-    this.direction = vec4.fromValues(0, 0, 0, 0);
-    this.temp_vec4 = vec4.create();
+
+    this.temp_vec4 = [];
+    this.temp_vec4_pos = 0;
 
     this.stack = [];
 
@@ -104,29 +106,58 @@ class RenderContext {
     this.indices = [];
   }
 
+  markTempVec4() {
+    return this.temp_vec4_pos;
+  }
+  freeTempVec4(mark) {
+    this.temp_vec4_pos = mark;
+  }
+  getTempVec4() {
+    if (this.temp_vec4_pos == this.temp_vec4.length) {
+      this.temp_vec4.push(vec4.create());
+    }
+    const result = this.temp_vec4[this.temp_vec4_pos];
+    this.temp_vec4_pos++;
+    return result;
+  }
+
   line(matrix, length) {
     const LINES_ARE_POLYGONS = true;
 
     if (LINES_ARE_POLYGONS) {
-      this.direction[2] = -length;
-      vec4.transformMat4(this.temp_vec4, this.direction, matrix);
+      const mark = this.markTempVec4();
+      try {
+        const direction = this.getTempVec4();
+        vec4.set(direction, 0, 0, -length, 0);
+        vec4.transformMat4(direction, direction, matrix);
 
-      const start_index = this.triangle_positions.length;
-      const cyl_length = cyl.positions.length;
-      for (let i = 0; i < cyl_length; i++) {
-        const pt0 = vec3.transformMat4(vec3.create(), cyl.positions[i], matrix);
-        const pt1 = vec3.clone(pt0);
-        pt1[0] += this.temp_vec4[0];
-        pt1[1] += this.temp_vec4[1];
-        pt1[2] += this.temp_vec4[2];
-        this.triangle_positions.push(pt0, pt1);
+        const start_index = this.triangle_positions.length;
+        const cyl_length = cyl.positions.length;
+        for (let i = 0; i < cyl_length; i++) {
+          const pt0 = vec3.transformMat4(
+            vec3.create(),
+            cyl.positions[i],
+            matrix
+          );
+          const pt1 = vec3.clone(pt0);
+          pt1[0] += direction[0];
+          pt1[1] += direction[1];
+          pt1[2] += direction[2];
+          this.triangle_positions.push(pt0, pt1);
 
-        const norm = vec4.transformMat4(vec4.create(), cyl.normals[i], matrix);
-        this.triangle_normals.push(norm, norm);
+          const norm = vec4.transformMat4(
+            vec4.create(),
+            cyl.normals[i],
+            matrix
+          );
+          this.triangle_normals.push(norm, norm);
 
-        this.triangle_colors.push(this.color, this.color);
+          this.triangle_colors.push(this.color, this.color);
+        }
+        this.triangle_indices.push(...cyl_indices.map(i => i + start_index));
+      } finally {
+        this.freeTempVec4(mark);
       }
-      this.triangle_indices.push(...cyl_indices.map(i => i + start_index));
     } else {
       this.ending[2] = -length;
       const ts = vec3.transformMat4(vec3.create(), this.origin, matrix);
@@ -158,15 +189,53 @@ class RenderContext {
 
   popPolygon() {
     if (this.positions.length >= 3) {
-      const start = this.triangle_positions.length;
-      this.triangle_positions.push(...this.positions);
-      this.triangle_colors.push(...this.colors);
-      //
-      // TODO THIS BULLSHIT HERE NEEDS TO MAKE NORMALS BUT HOW???
-      // AVERAGE FACE NORMALS??? WHAT IS THIS 1999???
-      //
-      for (let i = 1; i < this.positions.length - 1; i++) {
-        this.triangle_indices.push(start, start + i, start + i + 1);
+      const mark = this.markTempVec4();
+      try {
+        const start = this.triangle_positions.length;
+        this.triangle_positions.push(...this.positions);
+        this.triangle_colors.push(...this.colors);
+
+        for (let i = 0; i < this.positions.length; i++) {
+          this.triangle_normals.push(vec4.fromValues(0, 0, 0, 0));
+        }
+
+        for (let i = 1; i < this.positions.length - 1; i++) {
+          const ti0 = start;
+          const ti1 = start + i;
+          const ti2 = start + i + 1;
+
+          this.triangle_indices.push(ti0, ti1, ti2);
+
+          const tv0 = this.getTempVec4();
+          const tv1 = this.getTempVec4();
+          const tv2 = this.getTempVec4();
+
+          const pt0 = this.triangle_positions[ti0];
+          const pt1 = this.triangle_positions[ti1];
+          const pt2 = this.triangle_positions[ti2];
+          vec4.set(tv0, pt0[0], pt0[1], pt0[2], 0);
+          vec4.set(tv1, pt1[0], pt1[1], pt1[2], 0);
+          vec4.set(tv2, pt2[0], pt2[1], pt2[2], 0);
+
+          vec4.sub(tv1, tv1, tv0);
+          vec4.sub(tv2, tv2, tv0);
+          vec3.cross((tv2: any), (tv2: any), (tv1: any));
+
+          vec4.add(this.triangle_normals[ti0], this.triangle_normals[ti0], tv2);
+          vec4.add(this.triangle_normals[ti1], this.triangle_normals[ti1], tv2);
+          vec4.add(this.triangle_normals[ti2], this.triangle_normals[ti2], tv2);
+        }
+
+        // Why am I normalizing the vectors on the CPU though? We could just
+        // normalize them in the vector shader.
+        for (let i = 0; i < this.positions.length; i++) {
+          vec4.normalize(
+            this.triangle_normals[start + i],
+            this.triangle_normals[start + i]
+          );
+        }
+      } finally {
+        this.freeTempVec4(mark);
       }
     }
 
