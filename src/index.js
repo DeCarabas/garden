@@ -30,7 +30,7 @@ const cyl = (function() {
   const positions = [];
   const normals = [];
 
-  const FACETS = 6;
+  const FACETS = 24;
   const DIAMETER = 0.1;
 
   const delta = Math.PI * 2 / FACETS;
@@ -44,26 +44,22 @@ const cyl = (function() {
     normals.push(vec4.transformMat4(vec4.create(), norm, mat));
   }
 
+  const TRIANGLES = FACETS * 2;
+  const indices = [];
+  for (let i = 0; i < FACETS; i++) {
+    const start = i * 2;
+    indices.push(
+      ...[start + 0, start + 1, start + 2].map(n => n % TRIANGLES),
+      ...[start + 1, start + 3, start + 2].map(n => n % TRIANGLES)
+    );
+  }
+
   return {
     positions: positions,
     normals: normals,
+    indices: indices,
   };
 })();
-
-const cyl_indices = [
-  ...[0, 1, 2],
-  ...[1, 3, 2],
-  ...[2, 3, 4],
-  ...[3, 5, 4],
-  ...[4, 5, 6],
-  ...[5, 7, 6],
-  ...[6, 7, 8],
-  ...[7, 9, 8],
-  ...[8, 9, 10],
-  ...[9, 11, 10],
-  ...[10, 11, 0],
-  ...[11, 1, 0],
-];
 
 class RenderContext {
   origin: Vec3;
@@ -154,7 +150,7 @@ class RenderContext {
 
           this.triangle_colors.push(this.color, this.color);
         }
-        this.triangle_indices.push(...cyl_indices.map(i => i + start_index));
+        this.triangle_indices.push(...cyl.indices.map(i => i + start_index));
       } finally {
         this.freeTempVec4(mark);
       }
@@ -350,17 +346,15 @@ varying lowp vec4 vColor;
 varying highp vec4 vNormal;
 
 void main() {
-  // TODO: Light with normal and light direction.
   highp vec4 ambientLight = vec4(0.3, 0.3, 0.3, 1);
   highp vec4 directionalLightColor = vec4(1, 1, 1, 1);
-  highp vec4 directionalLightDirection = vec4(normalize(vec3(1, 1, -1)), 0);
+  highp vec4 directionalLightDirection = vec4(normalize(vec3(3, 3, 10)), 0);
 
   highp vec4 lightColor =
-    (abs(dot(directionalLightDirection, vNormal)) * directionalLightColor) +
+    (dot(directionalLightDirection, vNormal) * directionalLightColor) +
     ambientLight;
 
-  gl_FragColor = vec4(vColor.xyz * lightColor.xyz, 1);
-  //gl_FragColor = vColor;
+  gl_FragColor = vec4(vColor.xyz * lightColor.xyz, vColor.w);
 }
 `;
 
