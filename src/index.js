@@ -374,32 +374,53 @@ uniform mat4 uProjectionMatrix;
 
 varying lowp vec4 vColor;
 varying highp vec4 vNormal;
+varying highp vec4 vCameraToPoint;
 
 void main() {
-  gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+  highp vec4 world_pos = uModelViewMatrix * aVertexPosition;
+
+  gl_Position = uProjectionMatrix * world_pos;
   vColor = aVertexColor;
   vNormal = uModelViewMatrix * normalize(aVertexNormal);
+
+  // Because we send in the model view matrix by the time we've done this
+  // transform the camera is sitting at (0, 0, 0), so this vector is easy.
+  vCameraToPoint = -world_pos;
 }
 `;
 const fsSource = `
-uniform highp vec3 uCameraPosition;
-
 varying lowp vec4 vColor;
 varying highp vec4 vNormal;
+varying highp vec4 vCameraToPoint;
 
 void main() {
   highp vec3 ambientLight = vec3(0.2, 0.2, 0.2);
   highp vec4 lightColor = vec4(1, 1, 1, 1);
+
+  // Is this the direction the photons are going, or the opposite? I don't even
+  // know, to be honest.
   highp vec3 lightDirection = normalize(vec3(3, 10, 10));
-  highp vec3 normal = normalize(vec3(vNormal));
 
-  highp float factor = max(
-    dot(lightDirection, normal),
-    dot(lightDirection, -normal));
-
+  // Assume un-lit.
   lowp vec3 fragmentColor = ambientLight * vec3(vColor);
-  if (factor > 0.3 /* Diffuse threshold */) {
-    fragmentColor = (factor * vec3(lightColor)) * vec3(vColor);
+
+  // So lots of our geometry is 2-dimensional, and so we have to pretend that
+  // it has a front and a back. That means the surface normal goes both ways!
+  // However, we still need to know if we're looking at the lit side of the
+  // leaf or not; we do that by figuring out if we're looking at the same side
+  // of the leaf as the light. Easy!
+  highp vec3 normal = normalize(vec3(vNormal));
+  highp vec3 camera_to_point = normalize(vec3(vCameraToPoint));
+  if (dot(lightDirection, normal) * dot(camera_to_point, normal) > 0.0) {
+    // Hey look, we're on the same side as the light! We must be looking at the
+    // lit side.
+    highp float factor = max(
+      dot(lightDirection, normal),
+      dot(lightDirection, -normal));
+
+    if (factor > 0.2 /* Diffuse threshold */) {
+      fragmentColor = (factor * vec3(lightColor)) * vec3(vColor);
+    }
   }
 
   gl_FragColor = vec4(fragmentColor, vColor.w);
@@ -460,7 +481,6 @@ function getShader(gl) {
         "uProjectionMatrix"
       ),
       modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-      cameraPosition: gl.getUniformLocation(shaderProgram, "uCameraPosition"),
     },
   };
   return programInfo;
