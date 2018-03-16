@@ -61,6 +61,8 @@ const cyl = (function() {
   };
 })();
 
+const DEBUG_NORMAL_COLOR = vec4.fromValues(1, 1, 1, 1);
+
 class RenderContext {
   origin: Vec3;
   ending: Vec3;
@@ -81,6 +83,10 @@ class RenderContext {
   colors: Vec4[];
   indices: number[];
 
+  line_positions;
+  line_colors;
+  line_indices;
+
   constructor() {
     this.origin = vec3.fromValues(0, 0, 0);
     this.ending = vec3.fromValues(0, 0, 0);
@@ -97,9 +103,9 @@ class RenderContext {
     this.triangle_indices = [];
     this.triangle_normals = [];
 
-    this.positions = [];
-    this.colors = [];
-    this.indices = [];
+    this.line_positions = this.positions = [];
+    this.line_colors = this.colors = [];
+    this.line_indices = this.indices = [];
   }
 
   markTempVec4() {
@@ -184,10 +190,10 @@ class RenderContext {
   }
 
   popPolygon() {
+    const start = this.triangle_positions.length;
     if (this.positions.length >= 3) {
       const mark = this.markTempVec4();
       try {
-        const start = this.triangle_positions.length;
         this.triangle_positions.push(...this.positions);
         this.triangle_colors.push(...this.colors);
 
@@ -215,7 +221,7 @@ class RenderContext {
 
           vec4.sub(tv1, tv1, tv0);
           vec4.sub(tv2, tv2, tv0);
-          vec3.cross((tv2: any), (tv1: any), (tv2: any));
+          vec3.cross((tv2: any), (tv2: any), (tv1: any));
 
           vec4.add(this.triangle_normals[ti0], this.triangle_normals[ti0], tv2);
           vec4.add(this.triangle_normals[ti1], this.triangle_normals[ti1], tv2);
@@ -223,21 +229,22 @@ class RenderContext {
         }
 
         // Stick in one more polygon, but the normals point the other way and
-        // they're wound in the opposite direction.
-        this.triangle_positions.push(...this.positions);
-        this.triangle_colors.push(...this.colors);
-        for (let i = 0; i < this.positions.length; i++) {
-          this.triangle_normals.push(
-            vec4.negate(vec4.create(), this.triangle_normals[start + i])
-          );
-        }
-        for (let i = 1; i < this.positions.length - 1; i++) {
-          const ti0 = start;
-          const ti1 = start + i;
-          const ti2 = start + i + 1;
-
-          this.triangle_indices.push(ti2, ti1, ti0);
-        }
+        // they're wound in the opposite direction. This sucsk
+        // const next_start = this.triangle_positions.length;
+        // this.triangle_positions.push(...this.positions);
+        // this.triangle_colors.push(...this.colors);
+        // for (let i = 0; i < this.positions.length; i++) {
+        //   this.triangle_normals.push(
+        //     vec4.negate(vec4.create(), this.triangle_normals[start + i])
+        //   );
+        // }
+        // for (let i = 1; i < this.positions.length - 1; i++) {
+        //   const ti0 = next_start;
+        //   const ti1 = next_start + i;
+        //   const ti2 = next_start + i + 1;
+        //
+        //   this.triangle_indices.push(ti2, ti1, ti0);
+        // }
 
         // // Why am I normalizing the vectors on the CPU though? We could just
         // // normalize them in the vector shader.
@@ -246,6 +253,22 @@ class RenderContext {
         //     this.triangle_normals[start + i],
         //     this.triangle_normals[start + i]
         //   );
+        // }
+
+        // Make lines for the normals.
+        // for (let i = start; i < this.triangle_positions.length; i++) {
+        //   const pos = this.triangle_positions[i];
+        //   const norm = this.triangle_normals[i];
+        //
+        //   const end = vec3.fromValues(norm[0], norm[1], norm[2]);
+        //   vec3.add(end, end, pos);
+        //
+        //   this.line_indices.push(
+        //     this.line_positions.length,
+        //     this.line_positions.length + 1
+        //   );
+        //   this.line_positions.push(pos, end);
+        //   this.line_colors.push(DEBUG_NORMAL_COLOR, DEBUG_NORMAL_COLOR);
         // }
       } finally {
         this.freeTempVec4(mark);
@@ -359,19 +382,27 @@ void main() {
 }
 `;
 const fsSource = `
+uniform highp vec3 uCameraPosition;
+
 varying lowp vec4 vColor;
 varying highp vec4 vNormal;
 
 void main() {
-  highp vec4 ambientLight = vec4(0.2, 0.2, 0.2, 1);
-  highp vec4 directionalLightColor = vec4(1, 1, 1, 1);
-  highp vec4 directionalLightDirection = vec4(normalize(vec3(3, 10, 10)), 0);
+  highp vec3 ambientLight = vec3(0.2, 0.2, 0.2);
+  highp vec4 lightColor = vec4(1, 1, 1, 1);
+  highp vec3 lightDirection = normalize(vec3(3, 10, 10));
+  highp vec3 normal = normalize(vec3(vNormal));
 
-  highp float factor = max(dot(directionalLightDirection, vNormal), 0.0);
-  // highp float factor = abs(dot(directionalLightDirection, vNormal));
+  highp float factor = max(
+    dot(lightDirection, normal),
+    dot(lightDirection, -normal));
 
-  highp vec4 lightColor = (factor * directionalLightColor) + ambientLight;
-  gl_FragColor = vec4(vColor.xyz * lightColor.xyz, vColor.w);
+  lowp vec3 fragmentColor = ambientLight * vec3(vColor);
+  if (factor > 0.3 /* Diffuse threshold */) {
+    fragmentColor = (factor * vec3(lightColor)) * vec3(vColor);
+  }
+
+  gl_FragColor = vec4(fragmentColor, vColor.w);
 }
 `;
 
@@ -412,6 +443,27 @@ function loadShader(gl, type, source) {
   }
 
   return shader;
+}
+
+function getShader(gl) {
+  const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+  const programInfo = {
+    program: shaderProgram,
+    attribLocations: {
+      vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+      vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
+      vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
+    },
+    uniformLocations: {
+      projectionMatrix: gl.getUniformLocation(
+        shaderProgram,
+        "uProjectionMatrix"
+      ),
+      modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+      cameraPosition: gl.getUniformLocation(shaderProgram, "uCameraPosition"),
+    },
+  };
+  return programInfo;
 }
 
 function createBuffers(gl) {
@@ -497,23 +549,7 @@ function setup(gl) {
   gl.depthFunc(gl.LEQUAL);
   gl.lineWidth(3.0);
 
-  const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-  const programInfo = {
-    program: shaderProgram,
-    attribLocations: {
-      vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
-      vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
-    },
-    uniformLocations: {
-      projectionMatrix: gl.getUniformLocation(
-        shaderProgram,
-        "uProjectionMatrix"
-      ),
-      modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-    },
-  };
-  return programInfo;
+  return getShader(gl);
 }
 
 const garden = document.getElementById("garden");
@@ -533,6 +569,12 @@ const render_config = {
 };
 
 function draw(gl, cubeRotation, plant) {
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  if (plant.positions.length == 0 && plant.triangle_positions.length == 0) {
+    return;
+  }
+
   // Step 1: Measure the boundaries of the plant.
   let min = vec3.clone(plant.positions[0] || plant.triangle_positions[0]);
   let max = vec3.clone(plant.positions[0] || plant.triangle_positions[0]);
@@ -554,8 +596,6 @@ function draw(gl, cubeRotation, plant) {
   center[0] = 0;
 
   // Step 2: Draw the plant.
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
   const fieldOfView = toRadians(45);
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
   const zNear = 0.1;
