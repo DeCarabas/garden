@@ -431,7 +431,13 @@ function parseItemExpr(rule_value: string): item_expr[] {
       while (i < rule_value.length && isDigit(rule_value.charCodeAt(i))) {
         i++;
       }
-      return Number.parseInt(rule_value.substr(start, i - start));
+      if (i < rule_value.length && rule_value.charCodeAt(i) == /*.*/ 46) {
+        i++;
+        while (i < rule_value.length && isDigit(rule_value.charCodeAt(i))) {
+          i++;
+        }
+      }
+      return Number.parseFloat(rule_value.substr(start, i - start));
     } else {
       // Symbol.
       let start = i;

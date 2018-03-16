@@ -293,6 +293,7 @@ describe("parseItemExpr", () => {
     ["(yo (+ x (* 2 y)))", [["yo", [["+", "x", ["*", 2, "y"]]]]]],
     ["(a x y)", [["a", ["x", "y"]]]],
     ["(color #00FF00)", [["color", ["#00FF00"]]]],
+    ["(x 0.5)", [["x", [0.5]]]],
   ];
 
   for (let i = 0; i < cases.length; i++) {
