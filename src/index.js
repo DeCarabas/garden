@@ -2,6 +2,7 @@
 // @format
 const { mat4, vec3, vec4 } = require("gl-matrix");
 const { itemExpr, makeRuleSet, rewrite } = require("./lsystem");
+const { getFlatTriangleShader, getLineShader } = require("./shader");
 const systems = require("./systems");
 
 import type { item_expr } from "./lsystem";
@@ -66,7 +67,6 @@ const DEBUG_NORMAL_COLOR = vec4.fromValues(1, 1, 1, 1);
 class RenderContext {
   origin: Vec3;
   ending: Vec3;
-  temp: Vec3;
   color: Vec4;
 
   temp_vec4;
@@ -81,16 +81,13 @@ class RenderContext {
 
   positions: Vec3[];
   colors: Vec4[];
-  indices: number[];
 
   line_positions;
   line_colors;
-  line_indices;
 
   constructor() {
     this.origin = vec3.fromValues(0, 0, 0);
     this.ending = vec3.fromValues(0, 0, 0);
-    this.temp = vec3.create();
     this.color = vec4.fromValues(1, 1, 1, 1);
 
     this.temp_vec4 = [];
@@ -103,9 +100,11 @@ class RenderContext {
     this.triangle_indices = [];
     this.triangle_normals = [];
 
-    this.line_positions = this.positions = [];
-    this.line_colors = this.colors = [];
-    this.line_indices = this.indices = [];
+    this.line_positions = [];
+    this.line_colors = [];
+
+    this.positions = [];
+    this.colors = [];
   }
 
   markTempVec4() {
@@ -153,7 +152,6 @@ class RenderContext {
             matrix
           );
           this.triangle_normals.push(norm, norm);
-
           this.triangle_colors.push(this.color, this.color);
         }
         this.triangle_indices.push(...cyl.indices.map(i => i + start_index));
@@ -165,28 +163,24 @@ class RenderContext {
       const ts = vec3.transformMat4(vec3.create(), this.origin, matrix);
       const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
 
-      this.indices.push(this.positions.length, this.positions.length + 1);
-      this.colors.push(vec4.clone(this.color), vec4.clone(this.color));
-      this.positions.push(ts, te);
+      this.line_positions.push(ts, te);
+      this.line_colors.push(this.color, this.color);
     }
   }
 
   vertex(matrix) {
     this.positions.push(vec3.transformMat4(vec3.create(), this.origin, matrix));
-    this.colors.push(vec4.clone(this.color));
+    this.colors.push(this.color);
   }
 
   pushPolygon() {
     this.stack.push({
       positions: this.positions,
       colors: this.colors,
-      indices: this.indices,
       current_color: this.color,
     });
     this.positions = [];
     this.colors = [];
-    this.indices = [];
-    this.color = vec4.clone(this.color);
   }
 
   popPolygon() {
@@ -227,63 +221,19 @@ class RenderContext {
           vec4.add(this.triangle_normals[ti1], this.triangle_normals[ti1], tv2);
           vec4.add(this.triangle_normals[ti2], this.triangle_normals[ti2], tv2);
         }
-
-        // Stick in one more polygon, but the normals point the other way and
-        // they're wound in the opposite direction. This sucsk
-        // const next_start = this.triangle_positions.length;
-        // this.triangle_positions.push(...this.positions);
-        // this.triangle_colors.push(...this.colors);
-        // for (let i = 0; i < this.positions.length; i++) {
-        //   this.triangle_normals.push(
-        //     vec4.negate(vec4.create(), this.triangle_normals[start + i])
-        //   );
-        // }
-        // for (let i = 1; i < this.positions.length - 1; i++) {
-        //   const ti0 = next_start;
-        //   const ti1 = next_start + i;
-        //   const ti2 = next_start + i + 1;
-        //
-        //   this.triangle_indices.push(ti2, ti1, ti0);
-        // }
-
-        // // Why am I normalizing the vectors on the CPU though? We could just
-        // // normalize them in the vector shader.
-        // for (let i = 0; i < this.positions.length; i++) {
-        //   vec4.normalize(
-        //     this.triangle_normals[start + i],
-        //     this.triangle_normals[start + i]
-        //   );
-        // }
-
-        // Make lines for the normals.
-        // for (let i = start; i < this.triangle_positions.length; i++) {
-        //   const pos = this.triangle_positions[i];
-        //   const norm = this.triangle_normals[i];
-        //
-        //   const end = vec3.fromValues(norm[0], norm[1], norm[2]);
-        //   vec3.add(end, end, pos);
-        //
-        //   this.line_indices.push(
-        //     this.line_positions.length,
-        //     this.line_positions.length + 1
-        //   );
-        //   this.line_positions.push(pos, end);
-        //   this.line_colors.push(DEBUG_NORMAL_COLOR, DEBUG_NORMAL_COLOR);
-        // }
       } finally {
         this.freeTempVec4(mark);
       }
     }
 
-    const { positions, colors, indices, current_color } = this.stack.pop();
+    const { positions, colors, current_color } = this.stack.pop();
     this.positions = positions;
     this.colors = colors;
-    this.indices = indices;
     this.color = current_color;
   }
 
   setColor(r, g, b) {
-    vec4.set(this.color, r, g, b, 1);
+    this.color = vec4.fromValues(r, g, b, 1);
   }
 
   render(state, config) {
@@ -364,202 +314,171 @@ function toRadians(degrees) {
 }
 
 // HTML mechanics, WebGL bullshit.
-const vsSource = `
-attribute vec4 aVertexPosition;
-attribute vec4 aVertexNormal;
-attribute vec4 aVertexColor;
-
-uniform mat4 uModelViewMatrix;
-uniform mat4 uProjectionMatrix;
-
-varying lowp vec4 vColor;
-varying highp vec4 vNormal;
-varying highp vec4 vCameraToPoint;
-
-void main() {
-  highp vec4 world_pos = uModelViewMatrix * aVertexPosition;
-
-  gl_Position = uProjectionMatrix * world_pos;
-  vColor = aVertexColor;
-  vNormal = uModelViewMatrix * normalize(aVertexNormal);
-
-  // Because we send in the model view matrix by the time we've done this
-  // transform the camera is sitting at (0, 0, 0), so this vector is easy.
-  vCameraToPoint = -world_pos;
+function createBuffers(gl) {
+  return {
+    triangles: {
+      position: gl.createBuffer(),
+      normal: gl.createBuffer(),
+      color: gl.createBuffer(),
+      index: gl.createBuffer(),
+      index_count: 0,
+    },
+    lines: {
+      position: gl.createBuffer(),
+      direction: gl.createBuffer(),
+      next: gl.createBuffer(),
+      prev: gl.createBuffer(),
+      color: gl.createBuffer(),
+      index: gl.createBuffer(),
+      index_count: 0,
+    },
+  };
 }
-`;
-const fsSource = `
-varying lowp vec4 vColor;
-varying highp vec4 vNormal;
-varying highp vec4 vCameraToPoint;
 
-void main() {
-  highp vec3 ambientLight = vec3(0.2, 0.2, 0.2);
-  highp vec4 lightColor = vec4(1, 1, 1, 1);
-
-  // Is this the direction the photons are going, or the opposite? I don't even
-  // know, to be honest.
-  highp vec3 lightDirection = normalize(vec3(3, 10, 10));
-
-  // Assume un-lit.
-  lowp vec3 fragmentColor = ambientLight * vec3(vColor);
-
-  // So lots of our geometry is 2-dimensional, and so we have to pretend that
-  // it has a front and a back. That means the surface normal goes both ways!
-  // However, we still need to know if we're looking at the lit side of the
-  // leaf or not; we do that by figuring out if we're looking at the same side
-  // of the leaf as the light. Easy!
-  highp vec3 normal = normalize(vec3(vNormal));
-  highp vec3 camera_to_point = normalize(vec3(vCameraToPoint));
-  if (dot(lightDirection, normal) * dot(camera_to_point, normal) > 0.0) {
-    // Hey look, we're on the same side as the light! We must be looking at the
-    // lit side.
-    highp float factor = max(
-      dot(lightDirection, normal),
-      dot(lightDirection, -normal));
-
-    if (factor > 0.2 /* Diffuse threshold */) {
-      fragmentColor = (factor * vec3(lightColor)) * vec3(vColor);
+function fillLineBuffers(gl, buffers, obj) {
+  const position = new Float32Array(obj.line_positions.length * 6);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.line_positions.length; i++) {
+      const pos = obj.line_positions[i];
+      position[c++] = pos[0];
+      position[c++] = pos[1];
+      position[c++] = pos[2];
+      position[c++] = pos[0];
+      position[c++] = pos[1];
+      position[c++] = pos[2];
     }
   }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+  gl.bufferData(gl.ARRAY_BUFFER, position, gl.STATIC_DRAW);
 
-  gl_FragColor = vec4(fragmentColor, vColor.w);
-}
-`;
-
-function initShaderProgram(gl, vsSource, fsSource) {
-  const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-  const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-
-  const shaderProgram = gl.createProgram();
-  if (shaderProgram == null) {
-    throw new Error("Unable to create shader program");
+  const direction = new Float32Array(obj.line_positions.length * 2);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.line_positions.length; i++) {
+      direction[c++] = 1;
+      direction[c++] = -1;
+    }
   }
-  gl.attachShader(shaderProgram, vertexShader);
-  gl.attachShader(shaderProgram, fragmentShader);
-  gl.linkProgram(shaderProgram);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.direction);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(direction), gl.STATIC_DRAW);
 
-  if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-    console.error(
-      "Unable to initialize the shader program: " +
-        (gl.getProgramInfoLog(shaderProgram) || "")
-    );
-    throw new Error("Failed to init shader program");
+  const next = new Float32Array(position.length);
+  for (let i = 0; i < position.length - 1; i++) {
+    next[i] = position[i + 1];
   }
+  next[next.length - 1] = position[position.length - 1];
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.next);
+  gl.bufferData(gl.ARRAY_BUFFER, next, gl.STATIC_DRAW);
 
-  return shaderProgram;
-}
-
-function loadShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error(
-      "An error occurred compiling the shaders: " +
-        (gl.getShaderInfoLog(shader) || "")
-    );
-    gl.deleteShader(shader);
-    throw new Error("Failed to load shader");
+  const prev = new Float32Array(position.length);
+  prev[0] = position[0];
+  for (let i = 1; i < position.length; i++) {
+    prev[i] = position[i - 1];
   }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.prev);
+  gl.bufferData(gl.ARRAY_BUFFER, prev, gl.STATIC_DRAW);
 
-  return shader;
-}
+  const color = new Float32Array(obj.line_colors.length * 8);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.line_colors.length; i++) {
+      const col = obj.line_colors[i];
+      color[c++] = col[0];
+      color[c++] = col[1];
+      color[c++] = col[2];
+      color[c++] = col[3];
+      color[c++] = col[0];
+      color[c++] = col[1];
+      color[c++] = col[2];
+      color[c++] = col[3];
+    }
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+  gl.bufferData(gl.ARRAY_BUFFER, color, gl.STATIC_DRAW);
 
-function getShader(gl) {
-  const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-  const programInfo = {
-    program: shaderProgram,
-    attribLocations: {
-      vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-      vertexNormal: gl.getAttribLocation(shaderProgram, "aVertexNormal"),
-      vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
-    },
-    uniformLocations: {
-      projectionMatrix: gl.getUniformLocation(
-        shaderProgram,
-        "uProjectionMatrix"
-      ),
-      modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-    },
-  };
-  return programInfo;
-}
+  // TODO: Make multiple line segments. Each pair of vertices in line_positions
+  // is a distinct line segment, so don't build a triangle strip that connects
+  // all of the segments.
+  const vertex_count = position.length / 3; // Three points per vertex.
+  const segment_count = vertex_count / 4; // Four vertices per segment.
+  const index_count = segment_count * 6;
+  // const triangle_count = segment_count * 2; // Two triangles per segment.
+  // const index_count = triangle_count * 3; // Three indices per triangle.
 
-function createBuffers(gl) {
-  const positionBuffer = gl.createBuffer();
-  const normalBuffer = gl.createBuffer();
-  const indexBuffer = gl.createBuffer();
-  const colorBuffer = gl.createBuffer();
-
-  return {
-    position: positionBuffer,
-    normal: normalBuffer,
-    color: colorBuffer,
-    indices: indexBuffer,
-  };
+  const indices = new Uint16Array(index_count);
+  {
+    let index = 0;
+    let c = 0;
+    while (index < position.length / 3) {
+      indices[c++] = index + 0;
+      indices[c++] = index + 1;
+      indices[c++] = index + 2;
+      indices[c++] = index + 2;
+      indices[c++] = index + 1;
+      indices[c++] = index + 3;
+      index += 4; // Jump by two points in the line.
+    }
+  }
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+  buffers.index_count = indices.length;
 }
 
-function fillBuffers(gl, buffers, obj) {
-  const positions = [];
-  for (let i = 0; i < obj.positions.length; i++) {
-    positions.push(...obj.positions[i]);
+function fillTriangleBuffers(gl, buffers, obj) {
+  const tri_positions = new Float32Array(obj.triangle_positions.length * 3);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.triangle_positions.length; i++) {
+      const pos = obj.triangle_positions[i];
+      tri_positions[c++] = pos[0];
+      tri_positions[c++] = pos[1];
+      tri_positions[c++] = pos[2];
+    }
   }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.position);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+  gl.bufferData(gl.ARRAY_BUFFER, tri_positions, gl.STATIC_DRAW);
 
-  const colors = [];
-  for (let i = 0; i < obj.colors.length; i++) {
-    colors.push(...obj.colors[i]);
+  const tri_colors = new Float32Array(obj.triangle_colors.length * 4);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.triangle_colors.length; i++) {
+      const color = obj.triangle_colors[i];
+      tri_colors[c++] = color[0];
+      tri_colors[c++] = color[1];
+      tri_colors[c++] = color[2];
+      tri_colors[c++] = color[3];
+    }
   }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.color);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+  gl.bufferData(gl.ARRAY_BUFFER, tri_colors, gl.STATIC_DRAW);
 
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.lines.indices);
-  gl.bufferData(
-    gl.ELEMENT_ARRAY_BUFFER,
-    new Uint16Array(obj.indices),
-    gl.STATIC_DRAW
-  );
-
-  const tri_positions = [];
-  for (let i = 0; i < obj.triangle_positions.length; i++) {
-    tri_positions.push(...obj.triangle_positions[i]);
+  const tri_normals = new Float32Array(obj.triangle_normals.length * 4);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.triangle_normals.length; i++) {
+      const norm = obj.triangle_normals[i];
+      tri_normals[c++] = norm[0];
+      tri_normals[c++] = norm[1];
+      tri_normals[c++] = norm[2];
+      tri_normals[c++] = norm[3];
+    }
   }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.position);
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array(tri_positions),
-    gl.STATIC_DRAW
-  );
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+  gl.bufferData(gl.ARRAY_BUFFER, tri_normals, gl.STATIC_DRAW);
 
-  const tri_colors = [];
-  for (let i = 0; i < obj.triangle_colors.length; i++) {
-    tri_colors.push(...obj.triangle_colors[i]);
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.color);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tri_colors), gl.STATIC_DRAW);
-
-  const tri_normals = [];
-  for (let i = 0; i < obj.triangle_normals.length; i++) {
-    tri_normals.push(...obj.triangle_normals[i]);
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.normal);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tri_normals), gl.STATIC_DRAW);
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
   gl.bufferData(
     gl.ELEMENT_ARRAY_BUFFER,
     new Uint16Array(obj.triangle_indices),
     gl.STATIC_DRAW
   );
+  buffers.index_count = obj.triangle_indices.length;
 }
 
-function initBuffers(gl) {
-  return {
-    lines: createBuffers(gl),
-    triangles: createBuffers(gl),
-  };
+function fillBuffers(gl, buffers, obj) {
+  fillLineBuffers(gl, buffers.lines, obj);
+  fillTriangleBuffers(gl, buffers.triangles, obj);
 }
 
 function setup(gl) {
@@ -568,8 +487,6 @@ function setup(gl) {
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
   gl.lineWidth(3.0);
-
-  return getShader(gl);
 }
 
 const garden = document.getElementById("garden");
@@ -580,8 +497,10 @@ const gardenContext = garden.getContext("webgl");
 if (gardenContext == null) {
   throw Error("Cannot get GL context.");
 }
-const programInfo = setup(gardenContext);
-const buffers = initBuffers(gardenContext);
+setup(gardenContext);
+const flatTriangleShader = getFlatTriangleShader(gardenContext);
+const lineShader = getLineShader(gardenContext);
+const buffers = createBuffers(gardenContext);
 
 const render_config = {
   step_length: 0.5,
@@ -632,153 +551,22 @@ function draw(gl, cubeRotation, plant) {
   mat4.lookAt(modelViewMatrix, eyePosition, center, [0, 0, -1]);
   mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation, [0, 0, 1]);
 
-  drawCube(
-    gl,
-    projectionMatrix,
-    modelViewMatrix,
-    plant.indices.length,
-    plant.triangle_indices.length
+  const flaProjection = new Float32Array(projectionMatrix);
+  const flaModelView = new Float32Array(modelViewMatrix);
+  flatTriangleShader.draw(
+    buffers.triangles,
+    buffers.triangles.index_count,
+    flaProjection,
+    flaModelView
   );
-}
-
-function drawCube(
-  gl,
-  projectionMatrix,
-  modelViewMatrix,
-  lineVertexCount,
-  triangleVertexCount
-) {
-  // == Lines ================================================================
-  {
-    const numComponents = 3;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.position);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexPosition,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-  }
-
-  {
-    const numComponents = 4;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.lines.color);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexColor,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-  }
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.lines.indices);
-
-  gl.useProgram(programInfo.program);
-  gl.uniformMatrix4fv(
-    programInfo.uniformLocations.projectionMatrix,
-    false,
-    (projectionMatrix: any)
+  lineShader.draw(
+    buffers.lines,
+    buffers.lines.index_count,
+    flaProjection,
+    flaModelView,
+    0.1,
+    false
   );
-  gl.uniformMatrix4fv(
-    programInfo.uniformLocations.modelViewMatrix,
-    false,
-    (modelViewMatrix: any)
-  );
-
-  {
-    const type = gl.UNSIGNED_SHORT;
-    const offset = 0;
-    gl.drawElements(gl.LINES, lineVertexCount, type, offset);
-  }
-
-  // == Triangles =============================================================
-  {
-    const numComponents = 3;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.position);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexPosition,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-  }
-
-  {
-    const numComponents = 4;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.color);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexColor,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-  }
-
-  {
-    const numComponents = 4;
-    const type = gl.FLOAT;
-    const normalize = false;
-    const stride = 0;
-    const offset = 0;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.triangles.normal);
-    gl.vertexAttribPointer(
-      programInfo.attribLocations.vertexNormal,
-      numComponents,
-      type,
-      normalize,
-      stride,
-      offset
-    );
-    gl.enableVertexAttribArray(programInfo.attribLocations.vertexNormal);
-  }
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.triangles.indices);
-
-  gl.useProgram(programInfo.program);
-  gl.uniformMatrix4fv(
-    programInfo.uniformLocations.projectionMatrix,
-    false,
-    (projectionMatrix: any)
-  );
-  gl.uniformMatrix4fv(
-    programInfo.uniformLocations.modelViewMatrix,
-    false,
-    (modelViewMatrix: any)
-  );
-
-  {
-    const type = gl.UNSIGNED_SHORT;
-    const offset = 0;
-    gl.drawElements(gl.TRIANGLES, triangleVertexCount, type, offset);
-  }
 }
 
 let plant;
