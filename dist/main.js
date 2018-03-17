@@ -1,72 +1,72 @@
 /******/ (function(modules) { // webpackBootstrap
-/******/    // The module cache
-/******/    var installedModules = {};
+/******/ 	// The module cache
+/******/ 	var installedModules = {};
 /******/
-/******/    // The require function
-/******/    function __webpack_require__(moduleId) {
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
 /******/
-/******/        // Check if module is in cache
-/******/        if(installedModules[moduleId]) {
-/******/            return installedModules[moduleId].exports;
-/******/        }
-/******/        // Create a new module (and put it into the cache)
-/******/        var module = installedModules[moduleId] = {
-/******/            i: moduleId,
-/******/            l: false,
-/******/            exports: {}
-/******/        };
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
 /******/
-/******/        // Execute the module function
-/******/        modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
 /******/
-/******/        // Flag the module as loaded
-/******/        module.l = true;
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
 /******/
-/******/        // Return the exports of the module
-/******/        return module.exports;
-/******/    }
-/******/
-/******/
-/******/    // expose the modules object (__webpack_modules__)
-/******/    __webpack_require__.m = modules;
-/******/
-/******/    // expose the module cache
-/******/    __webpack_require__.c = installedModules;
-/******/
-/******/    // define getter function for harmony exports
-/******/    __webpack_require__.d = function(exports, name, getter) {
-/******/        if(!__webpack_require__.o(exports, name)) {
-/******/            Object.defineProperty(exports, name, {
-/******/                configurable: false,
-/******/                enumerable: true,
-/******/                get: getter
-/******/            });
-/******/        }
-/******/    };
-/******/
-/******/    // define __esModule on exports
-/******/    __webpack_require__.r = function(exports) {
-/******/        Object.defineProperty(exports, '__esModule', { value: true });
-/******/    };
-/******/
-/******/    // getDefaultExport function for compatibility with non-harmony modules
-/******/    __webpack_require__.n = function(module) {
-/******/        var getter = module && module.__esModule ?
-/******/            function getDefault() { return module['default']; } :
-/******/            function getModuleExports() { return module; };
-/******/        __webpack_require__.d(getter, 'a', getter);
-/******/        return getter;
-/******/    };
-/******/
-/******/    // Object.prototype.hasOwnProperty.call
-/******/    __webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
-/******/
-/******/    // __webpack_public_path__
-/******/    __webpack_require__.p = "";
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
 /******/
 /******/
-/******/    // Load entry module and return exports
-/******/    return __webpack_require__(__webpack_require__.s = "./src/index.js");
+/******/ 	// expose the modules object (__webpack_modules__)
+/******/ 	__webpack_require__.m = modules;
+/******/
+/******/ 	// expose the module cache
+/******/ 	__webpack_require__.c = installedModules;
+/******/
+/******/ 	// define getter function for harmony exports
+/******/ 	__webpack_require__.d = function(exports, name, getter) {
+/******/ 		if(!__webpack_require__.o(exports, name)) {
+/******/ 			Object.defineProperty(exports, name, {
+/******/ 				configurable: false,
+/******/ 				enumerable: true,
+/******/ 				get: getter
+/******/ 			});
+/******/ 		}
+/******/ 	};
+/******/
+/******/ 	// define __esModule on exports
+/******/ 	__webpack_require__.r = function(exports) {
+/******/ 		Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 	};
+/******/
+/******/ 	// getDefaultExport function for compatibility with non-harmony modules
+/******/ 	__webpack_require__.n = function(module) {
+/******/ 		var getter = module && module.__esModule ?
+/******/ 			function getDefault() { return module['default']; } :
+/******/ 			function getModuleExports() { return module; };
+/******/ 		__webpack_require__.d(getter, 'a', getter);
+/******/ 		return getter;
+/******/ 	};
+/******/
+/******/ 	// Object.prototype.hasOwnProperty.call
+/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
+/******/
+/******/ 	// __webpack_public_path__
+/******/ 	__webpack_require__.p = "";
+/******/
+/******/
+/******/ 	// Load entry module and return exports
+/******/ 	return __webpack_require__(__webpack_require__.s = "./src/index.js");
 /******/ })
 /************************************************************************/
 /******/ ({
@@ -235,7 +235,7 @@ eval("\n\nvar _slicedToArray = function () { function sliceIterator(arr, i) { va
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
-eval("\n\nvar _templateObject = _taggedTemplateLiteral([\"F + F\"], [\"F + F\"]),\n    _templateObject2 = _taggedTemplateLiteral([\"F(F1)+F(Fr)++F(Fr)-F(F1)--F(F1)F(F1)-F(Fr)+\"], [\"F(F1)+F(Fr)++F(Fr)-F(F1)--F(F1)F(F1)-F(Fr)+\"]),\n    _templateObject3 = _taggedTemplateLiteral([\"-F(F1)+F(Fr)F(Fr)++F(Fr)+F(F1)--F(F1)-F(Fr)\"], [\"-F(F1)+F(Fr)F(Fr)++F(Fr)+F(F1)--F(F1)-F(Fr)\"]),\n    _templateObject4 = _taggedTemplateLiteral([\"+RF-LFL-FR+\"], [\"+RF-LFL-FR+\"]),\n    _templateObject5 = _taggedTemplateLiteral([\"-LF+RFR+FL-\"], [\"-LF+RFR+FL-\"]),\n    _templateObject6 = _taggedTemplateLiteral([\"B-F+CFC+F-D&F^D-F+&&CFC+F+B//\"], [\"B-F+CFC+F-D&F^D-F+&&CFC+F+B//\"]),\n    _templateObject7 = _taggedTemplateLiteral([\"A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//\"], [\"A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//\"]),\n    _templateObject8 = _taggedTemplateLiteral([\"|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//\"], [\"|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//\"]),\n    _templateObject9 = _taggedTemplateLiteral([\"|CFB-F+B|FA&F^A&&FB-F+B|FC//\"], [\"|CFB-F+B|FA&F^A&&FB-F+B|FC//\"]),\n    _templateObject10 = _taggedTemplateLiteral([\"F-[[X]+X]+F[+FX]-X\"], [\"F-[[X]+X]+F[+FX]-X\"]),\n    _templateObject11 = _taggedTemplateLiteral([\"FF\"], [\"FF\"]),\n    _templateObject12 = _taggedTemplateLiteral([\"[&FL!A]/////'[&FL!A]///////'[&FL!A]\"], [\"[&FL!A]/////'[&FL!A]///////'[&FL!A]\"]),\n    _templateObject13 = _taggedTemplateLiteral([\"S/////F\"], [\"S/////F\"]),\n    _templateObject14 = _taggedTemplateLiteral([\"FL\"], [\"FL\"]),\n    _templateObject15 = _taggedTemplateLiteral([\"['''^^{-f+f+f-|-f+f+f}]\"], [\"['''^^{-f+f+f-|-f+f+f}]\"]),\n    _templateObject16 = _taggedTemplateLiteral([\"\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)]\\n              (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)\\n              (flower)\\n            \"], [\"\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)]\\n              (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)\\n              (flower)\\n            \"]),\n    _templateObject17 = _taggedTemplateLiteral([\"F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"], [\"F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"]),\n    _templateObject18 = _taggedTemplateLiteral([\"(seg) F (seg)\"], [\"(seg) F (seg)\"]),\n    _templateObject19 = _taggedTemplateLiteral([\"[' { + f - ff - f + | + f - ff - f } ]\"], [\"[' { + f - ff - f + | + f - ff - f } ]\"]),\n    _templateObject20 = _taggedTemplateLiteral([\"\\n              [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge) ]\\n            \"], [\"\\n              [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge) ]\\n            \"]),\n    _templateObject21 = _taggedTemplateLiteral([\"['^F][{&&&&-f+f|-f+f}]\"], [\"['^F][{&&&&-f+f|-f+f}]\"]),\n    _templateObject22 = _taggedTemplateLiteral([\"F[+F]F[-F]F\"], [\"F[+F]F[-F]F\"]),\n    _templateObject23 = _taggedTemplateLiteral([\"F[+F]F\"], [\"F[+F]F\"]),\n    _templateObject24 = _taggedTemplateLiteral([\"F[-F]F\"], [\"F[-F]F\"]),\n    _templateObject25 = _taggedTemplateLiteral([\"\\n              (color 0 1 0)\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)\\n              [ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)\\n            \"], [\"\\n              (color 0 1 0)\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)] (internode)\\n              [ + + (leaf)] - [ (plant) (flower) ] + + (plant) (flower)\\n            \"]),\n    _templateObject26 = _taggedTemplateLiteral([\"(seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"], [\"(seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"]),\n    _templateObject27 = _taggedTemplateLiteral([\"(seg)\"], [\"(seg)\"]),\n    _templateObject28 = _taggedTemplateLiteral([\"\\n              [{(color 0 1 0) + f . - ff . - f . + | + f . - ff . - f .}]\\n            \"], [\"\\n              [{(color 0 1 0) + f . - ff . - f . + | + f . - ff . - f .}]\\n            \"]),\n    _templateObject29 = _taggedTemplateLiteral([\"\\n              [& & & (pedicel) / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge)]\\n            \"], [\"\\n              [& & & (pedicel) / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge)]\\n            \"]),\n    _templateObject30 = _taggedTemplateLiteral([\"\\n              [(color 1 1 1)^F][{(color 0 0 1) & & & & - f . + f . | - f . + f .}]\\n            \"], [\"\\n              [(color 1 1 1)^F][{(color 0 0 1) & & & & - f . + f . | - f . + f .}]\\n            \"]);\n\nfunction _taggedTemplateLiteral(strings, raw) { return Object.freeze(Object.defineProperties(strings, { raw: { value: Object.freeze(raw) } })); }\n\n// @format\nvar _require = __webpack_require__(/*! ./lsystem */ \"./src/lsystem.js\"),\n    itemExpr = _require.itemExpr,\n    makeRuleSet = _require.makeRuleSet;\n\nfunction toRadians(degrees) {\n  return degrees * (Math.PI / 180.0);\n}\n\nvar systems = {\n  // debug\n  debug: {\n    initial: [[\"F\", []]],\n    angle: toRadians(45),\n    initial_steps: 0,\n    rules: makeRuleSet({\n      rules: {\n        F: [{ next: itemExpr(_templateObject) }]\n      }\n    })\n  },\n\n  // Hexagonal gosper curve (not right)\n  hex_gosper: {\n    initial: [[\"F\", []], [\"F1\", []]],\n    angle: toRadians(60),\n    initial_steps: 4,\n    rules: makeRuleSet({\n      rules: {\n        F1: [{ next: itemExpr(_templateObject2) }],\n        Fr: [{ next: itemExpr(_templateObject3) }]\n      }\n    })\n  },\n\n  // Two-dimensional hilbert curve\n  hilbert2d: {\n    initial: [[\"L\", []]],\n    angle: toRadians(90),\n    initial_steps: 3,\n    rules: makeRuleSet({\n      rules: {\n        L: [{ next: itemExpr(_templateObject4) }],\n        R: [{ next: itemExpr(_templateObject5) }]\n      }\n    })\n  },\n\n  // Three-dimensional hilbert curve\n  hilbert3d: {\n    initial: [[\"A\", []]],\n    angle: toRadians(90),\n    initial_steps: 2,\n    rules: makeRuleSet({\n      rules: {\n        A: [{ next: itemExpr(_templateObject6) }],\n        B: [{ next: itemExpr(_templateObject7) }],\n        C: [{ next: itemExpr(_templateObject8) }],\n        D: [{ next: itemExpr(_templateObject9) }]\n      }\n    })\n  },\n\n  // Example 'f' of axial trees, kinda pretty.\n  axialf: {\n    initial: [[\"X\", []]],\n    angle: toRadians(22.5),\n    initial_steps: 5,\n    rules: makeRuleSet({\n      rules: {\n        X: [{ next: itemExpr(_templateObject10) }],\n        F: [{ next: itemExpr(_templateObject11) }]\n      }\n    })\n  },\n\n  // \"A three-dimensional bush-like structure\"\n  // This one has some instructions for colors and shapes which I haven't\n  // implemented yet.\n  first_bush: {\n    initial: [[\"A\", []]],\n    angle: toRadians(22.5),\n    initial_steps: 7,\n    rules: makeRuleSet({\n      rules: {\n        A: [{ next: itemExpr(_templateObject12) }],\n        F: [{ next: itemExpr(_templateObject13) }],\n        S: [{ next: itemExpr(_templateObject14) }],\n        L: [{ next: itemExpr(_templateObject15) }]\n      }\n    })\n  },\n\n  flower: {\n    initial: [[\"plant\", []]],\n    angle: toRadians(18),\n    initial_steps: 5,\n    rules: makeRuleSet({\n      rules: {\n        plant: [{\n          next: itemExpr(_templateObject16)\n        }],\n        internode: [{\n          next: itemExpr(_templateObject17)\n        }],\n        seg: [{ next: itemExpr(_templateObject18) }],\n        leaf: [{ next: itemExpr(_templateObject19) }],\n        flower: [{\n          next: itemExpr(_templateObject20)\n        }],\n        pedicel: [{ next: itemExpr(_templateObject11) }],\n        wedge: [{ next: itemExpr(_templateObject21) }]\n      }\n    })\n  },\n\n  stochastic: {\n    initial: [[\"F\", []]],\n    angle: toRadians(22.5),\n    initial_steps: 5,\n    rules: makeRuleSet({\n      rules: {\n        F: [{ next: itemExpr(_templateObject22) }, { next: itemExpr(_templateObject23) }, { next: itemExpr(_templateObject24) }]\n      }\n    })\n  },\n\n  rando_flower: {\n    initial: [[\"plant\", []]],\n    angle: toRadians(18),\n    initial_steps: 1, //5,\n    rules: makeRuleSet({\n      rules: {\n        plant: [{\n          next: itemExpr(_templateObject25)\n        }],\n        internode: [{\n          next: itemExpr(_templateObject17)\n        }],\n        seg: [{ next: itemExpr(_templateObject26) }, { next: itemExpr(_templateObject18) }, { next: itemExpr(_templateObject27) }],\n        leaf: [{\n          next: itemExpr(_templateObject28)\n        }],\n        flower: [{\n          next: itemExpr(_templateObject29)\n        }],\n        pedicel: [{ next: itemExpr(_templateObject11) }],\n        wedge: [{\n          next: itemExpr(_templateObject30)\n        }]\n      }\n    })\n  }\n};\n\n// Here are a gallery of systems that I'm playing with!\nmodule.exports = systems;\n\n//# sourceURL=webpack:///./src/systems.js?");
+eval("\n\nvar _templateObject = _taggedTemplateLiteral([\"F + F\"], [\"F + F\"]),\n    _templateObject2 = _taggedTemplateLiteral([\"F(F1)+F(Fr)++F(Fr)-F(F1)--F(F1)F(F1)-F(Fr)+\"], [\"F(F1)+F(Fr)++F(Fr)-F(F1)--F(F1)F(F1)-F(Fr)+\"]),\n    _templateObject3 = _taggedTemplateLiteral([\"-F(F1)+F(Fr)F(Fr)++F(Fr)+F(F1)--F(F1)-F(Fr)\"], [\"-F(F1)+F(Fr)F(Fr)++F(Fr)+F(F1)--F(F1)-F(Fr)\"]),\n    _templateObject4 = _taggedTemplateLiteral([\"+RF-LFL-FR+\"], [\"+RF-LFL-FR+\"]),\n    _templateObject5 = _taggedTemplateLiteral([\"-LF+RFR+FL-\"], [\"-LF+RFR+FL-\"]),\n    _templateObject6 = _taggedTemplateLiteral([\"B-F+CFC+F-D&F^D-F+&&CFC+F+B//\"], [\"B-F+CFC+F-D&F^D-F+&&CFC+F+B//\"]),\n    _templateObject7 = _taggedTemplateLiteral([\"A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//\"], [\"A&F^CFB^F^D^^-F-D^|F^B|FC^F^A//\"]),\n    _templateObject8 = _taggedTemplateLiteral([\"|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//\"], [\"|D^|F^B-F+C^F^A&&FA&F^C+F+B^F^D//\"]),\n    _templateObject9 = _taggedTemplateLiteral([\"|CFB-F+B|FA&F^A&&FB-F+B|FC//\"], [\"|CFB-F+B|FA&F^A&&FB-F+B|FC//\"]),\n    _templateObject10 = _taggedTemplateLiteral([\"F-[[X]+X]+F[+FX]-X\"], [\"F-[[X]+X]+F[+FX]-X\"]),\n    _templateObject11 = _taggedTemplateLiteral([\"FF\"], [\"FF\"]),\n    _templateObject12 = _taggedTemplateLiteral([\"[&FL!A]/////'[&FL!A]///////'[&FL!A]\"], [\"[&FL!A]/////'[&FL!A]///////'[&FL!A]\"]),\n    _templateObject13 = _taggedTemplateLiteral([\"S/////F\"], [\"S/////F\"]),\n    _templateObject14 = _taggedTemplateLiteral([\"FL\"], [\"FL\"]),\n    _templateObject15 = _taggedTemplateLiteral([\"['''^^{-f+f+f-|-f+f+f}]\"], [\"['''^^{-f+f+f-|-f+f+f}]\"]),\n    _templateObject16 = _taggedTemplateLiteral([\"\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)]\\n              (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)\\n              (flower)\\n            \"], [\"\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)]\\n              (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)\\n              (flower)\\n            \"]),\n    _templateObject17 = _taggedTemplateLiteral([\"F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"], [\"F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"]),\n    _templateObject18 = _taggedTemplateLiteral([\"(seg) F (seg)\"], [\"(seg) F (seg)\"]),\n    _templateObject19 = _taggedTemplateLiteral([\"[' { + f - ff - f + | + f - ff - f } ]\"], [\"[' { + f - ff - f + | + f - ff - f } ]\"]),\n    _templateObject20 = _taggedTemplateLiteral([\"\\n              [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge) ]\\n            \"], [\"\\n              [& & & (pedicel) ' / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge) ]\\n            \"]),\n    _templateObject21 = _taggedTemplateLiteral([\"['^F][{&&&&-f+f|-f+f}]\"], [\"['^F][{&&&&-f+f|-f+f}]\"]),\n    _templateObject22 = _taggedTemplateLiteral([\"F[+F]F[-F]F\"], [\"F[+F]F[-F]F\"]),\n    _templateObject23 = _taggedTemplateLiteral([\"F[+F]F\"], [\"F[+F]F\"]),\n    _templateObject24 = _taggedTemplateLiteral([\"F[-F]F\"], [\"F[-F]F\"]),\n    _templateObject25 = _taggedTemplateLiteral([\"\\n              (color 0 0.4 0)\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)]\\n              (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)\\n              (flower)\\n            \"], [\"\\n              (color 0 0.4 0)\\n              (internode) + [(plant) + (flower)] - - // [ - - (leaf)]\\n              (internode) [ + + (leaf)] - [ (plant) (flower) ] + + (plant)\\n              (flower)\\n            \"]),\n    _templateObject26 = _taggedTemplateLiteral([\"(seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"], [\"(seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)\"]),\n    _templateObject27 = _taggedTemplateLiteral([\"(seg)\"], [\"(seg)\"]),\n    _templateObject28 = _taggedTemplateLiteral([\"\\n              [{(color 0 1 0) + f . - ff . - f . + | + f . - ff . - f .}]\\n            \"], [\"\\n              [{(color 0 1 0) + f . - ff . - f . + | + f . - ff . - f .}]\\n            \"]),\n    _templateObject29 = _taggedTemplateLiteral([\"\\n              [& & & (pedicel) / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge)]\\n            \"], [\"\\n              [& & & (pedicel) / (wedge) //// (wedge) //// (wedge) ////\\n              (wedge) //// (wedge)]\\n            \"]),\n    _templateObject30 = _taggedTemplateLiteral([\"\\n              [(color 1 1 1)^F]\\n              [{(color 0 0 1) & & & & - f . + f . | - f . + f .}]\\n            \"], [\"\\n              [(color 1 1 1)^F]\\n              [{(color 0 0 1) & & & & - f . + f . | - f . + f .}]\\n            \"]);\n\nfunction _taggedTemplateLiteral(strings, raw) { return Object.freeze(Object.defineProperties(strings, { raw: { value: Object.freeze(raw) } })); }\n\n// @format\nvar _require = __webpack_require__(/*! ./lsystem */ \"./src/lsystem.js\"),\n    itemExpr = _require.itemExpr,\n    makeRuleSet = _require.makeRuleSet;\n\nfunction toRadians(degrees) {\n  return degrees * (Math.PI / 180.0);\n}\n\nvar systems = {\n  // debug\n  debug: {\n    initial: [[\"F\", []]],\n    angle: toRadians(45),\n    initial_steps: 0,\n    rules: makeRuleSet({\n      rules: {\n        F: [{ next: itemExpr(_templateObject) }]\n      }\n    })\n  },\n\n  // Hexagonal gosper curve (not right)\n  hex_gosper: {\n    initial: [[\"F\", []], [\"F1\", []]],\n    angle: toRadians(60),\n    initial_steps: 4,\n    rules: makeRuleSet({\n      rules: {\n        F1: [{ next: itemExpr(_templateObject2) }],\n        Fr: [{ next: itemExpr(_templateObject3) }]\n      }\n    })\n  },\n\n  // Two-dimensional hilbert curve\n  hilbert2d: {\n    initial: [[\"L\", []]],\n    angle: toRadians(90),\n    initial_steps: 3,\n    rules: makeRuleSet({\n      rules: {\n        L: [{ next: itemExpr(_templateObject4) }],\n        R: [{ next: itemExpr(_templateObject5) }]\n      }\n    })\n  },\n\n  // Three-dimensional hilbert curve\n  hilbert3d: {\n    initial: [[\"A\", []]],\n    angle: toRadians(90),\n    initial_steps: 2,\n    rules: makeRuleSet({\n      rules: {\n        A: [{ next: itemExpr(_templateObject6) }],\n        B: [{ next: itemExpr(_templateObject7) }],\n        C: [{ next: itemExpr(_templateObject8) }],\n        D: [{ next: itemExpr(_templateObject9) }]\n      }\n    })\n  },\n\n  // Example 'f' of axial trees, kinda pretty.\n  axialf: {\n    initial: [[\"X\", []]],\n    angle: toRadians(22.5),\n    initial_steps: 5,\n    rules: makeRuleSet({\n      rules: {\n        X: [{ next: itemExpr(_templateObject10) }],\n        F: [{ next: itemExpr(_templateObject11) }]\n      }\n    })\n  },\n\n  // \"A three-dimensional bush-like structure\"\n  // This one has some instructions for colors and shapes which I haven't\n  // implemented yet.\n  first_bush: {\n    initial: [[\"A\", []]],\n    angle: toRadians(22.5),\n    initial_steps: 7,\n    rules: makeRuleSet({\n      rules: {\n        A: [{ next: itemExpr(_templateObject12) }],\n        F: [{ next: itemExpr(_templateObject13) }],\n        S: [{ next: itemExpr(_templateObject14) }],\n        L: [{ next: itemExpr(_templateObject15) }]\n      }\n    })\n  },\n\n  flower: {\n    initial: [[\"plant\", []]],\n    angle: toRadians(18),\n    initial_steps: 5,\n    rules: makeRuleSet({\n      rules: {\n        plant: [{\n          next: itemExpr(_templateObject16)\n        }],\n        internode: [{\n          next: itemExpr(_templateObject17)\n        }],\n        seg: [{ next: itemExpr(_templateObject18) }],\n        leaf: [{ next: itemExpr(_templateObject19) }],\n        flower: [{\n          next: itemExpr(_templateObject20)\n        }],\n        pedicel: [{ next: itemExpr(_templateObject11) }],\n        wedge: [{ next: itemExpr(_templateObject21) }]\n      }\n    })\n  },\n\n  stochastic: {\n    initial: [[\"F\", []]],\n    angle: toRadians(22.5),\n    initial_steps: 5,\n    rules: makeRuleSet({\n      rules: {\n        F: [{ next: itemExpr(_templateObject22) }, { next: itemExpr(_templateObject23) }, { next: itemExpr(_templateObject24) }]\n      }\n    })\n  },\n\n  rando_flower: {\n    initial: [[\"plant\", []]],\n    angle: toRadians(18),\n    initial_steps: 1, //5,\n    rules: makeRuleSet({\n      rules: {\n        plant: [{\n          next: itemExpr(_templateObject25)\n        }],\n        internode: [{\n          next: itemExpr(_templateObject17)\n        }],\n        seg: [{ next: itemExpr(_templateObject26) }, { next: itemExpr(_templateObject18) }, { next: itemExpr(_templateObject27) }],\n        leaf: [{\n          next: itemExpr(_templateObject28)\n        }],\n        flower: [{\n          next: itemExpr(_templateObject29)\n        }],\n        pedicel: [{ next: itemExpr(_templateObject11) }],\n        wedge: [{\n          next: itemExpr(_templateObject30)\n        }]\n      }\n    })\n  }\n};\n\n// Here are a gallery of systems that I'm playing with!\nmodule.exports = systems;\n\n//# sourceURL=webpack:///./src/systems.js?");
 
 /***/ })
 
