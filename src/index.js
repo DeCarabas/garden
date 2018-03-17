@@ -191,6 +191,14 @@ class RenderContext {
         this.triangle_positions.push(...this.positions);
         this.triangle_colors.push(...this.colors);
 
+        const OUTLINE_COLOR = vec4.fromValues(0, 0, 0, 1);
+        for (let i = 0; i < this.positions.length; i++) {
+          const curr = i;
+          const next = (i + 1) % this.positions.length;
+          this.line_positions.push(this.positions[curr], this.positions[next]);
+          this.line_colors.push(OUTLINE_COLOR, OUTLINE_COLOR);
+        }
+
         for (let i = 0; i < this.positions.length; i++) {
           this.triangle_normals.push(vec4.fromValues(0, 0, 0, 0));
         }
@@ -482,7 +490,7 @@ function fillBuffers(gl, buffers, obj) {
 }
 
 function setup(gl) {
-  gl.clearColor(0, 0, 0, 1);
+  gl.clearColor(0, 0, 1, 1);
   gl.clearDepth(1.0);
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
@@ -564,7 +572,7 @@ function draw(gl, cubeRotation, plant) {
     buffers.lines.index_count,
     flaProjection,
     flaModelView,
-    0.1,
+    0.05,
     false
   );
 }

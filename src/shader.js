@@ -294,7 +294,7 @@ function getLineShader(gl: WebGLRenderingContext) {
     normal *= len / 2.0;
     normal.x /= uAspectRatio;
 
-    vec4 offset = vec4(normal * aDirection, 0.0, 0.0);
+    vec4 offset = vec4(normal * aDirection, -0.001, 0.0);
     gl_Position = currentProjected + offset;
 
     vColor = aVertexColor;
