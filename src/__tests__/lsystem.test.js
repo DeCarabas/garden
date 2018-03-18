@@ -48,11 +48,7 @@ describe("evalExpression", () => {
 });
 
 /** Split a string into individual items without values, for testing. */
-function _is(s /*:string*/) /*: item[] */ {
-  return s.split("").map(c => [c, []]);
-}
-
-function _ise(s /*:string*/) /*: item_expr[] */ {
+function _is(s) /*: [string, any[]][] */ {
   return s.split("").map(c => [c, []]);
 }
 
@@ -270,9 +266,9 @@ describe("rewrite", () => {
     const rules = makeRuleSet({
       rules: {
         a: [
-          { probability: 0.25, next: _ise("ba") },
-          { probability: 0.25, next: _ise("ca") },
-          { probability: 0.5, next: _ise("a") },
+          { probability: 0.25, next: _is("ba") },
+          { probability: 0.25, next: _is("ca") },
+          { probability: 0.5, next: _is("a") },
         ],
       },
     });
