@@ -5,11 +5,20 @@ const invariant = require("invariant");
 // Parameterized l-systems require expressions; this here implements a little
 // S-expression kinda evaluator over numbers and booleans, which is enough for
 // us. These expressions get used in predicates and productions.
+/*::
 type value = number | boolean;
 type expr = number | boolean | string | expr[];
 type var_id = string;
+*/
 
-function evalExpression(expr: expr, env: { [var_id]: value }): value {
+// This dumb helper is used to make casting easier when using flow comment
+// syntax.
+const as_any = x => /*:: ( */ x /*:: :any) */;
+
+function evalExpression(
+  expr /*: expr*/,
+  env /*: { [var_id]: value }*/
+) /*: value*/ {
   if (typeof expr == "string") {
     return env[expr];
   } else if (typeof expr == "number" || typeof expr == "boolean") {
@@ -17,8 +26,11 @@ function evalExpression(expr: expr, env: { [var_id]: value }): value {
   } else {
     const fn = expr[0];
     const args = expr.slice(1).map(e => evalExpression(e, env));
-    function dbg(result: value): value {
-      // console.log('(', fn, ...args, ') =>', result);
+    // When uncommented, this debug function needs access to the `fn` and `args
+    // parameters.
+    // eslint-disable-next-line no-inner-declarations
+    function dbg(result) {
+      //console.log("(", fn, ...args, ") =>", result);
       return result;
     }
 
@@ -49,7 +61,7 @@ function evalExpression(expr: expr, env: { [var_id]: value }): value {
       }
       case "==": {
         for (let i = 1; i < args.length; i++) {
-          if ((args[0]: any) != (args[i]: any)) {
+          if (as_any(args[0]) != as_any(args[i])) {
             return dbg(false);
           }
         }
@@ -81,6 +93,7 @@ function evalExpression(expr: expr, env: { [var_id]: value }): value {
   }
 }
 
+/*::
 type item_id = string;
 
 // A single item in our l-system is a tuple of an ID and a set of values.
@@ -91,11 +104,12 @@ export type item = [item_id, value[]];
 // item, and if the number of variables in the rule matches the number of
 // values in the item.
 type context_rule = [item_id, var_id[]];
+*/
 
 // Attempt to bind the specified context rule against the specified "item".
 // Returns null if the rule can't bind the item, otherwise returns an object
 // that maps the variable names from the rule to the values they bind.
-function tryBindContextRule(rule: context_rule, item: item) {
+function tryBindContextRule(rule, item) {
   const [binding_id, binding_vars] = rule;
   const [item_id, item_params] = item;
 
@@ -113,6 +127,7 @@ function tryBindContextRule(rule: context_rule, item: item) {
   return binding;
 }
 
+/*::
 // An item_expr describes how to make a new item in some environment. The first
 // element in the tuple is the ID of the new item, the second is the set of
 // expressions that compute the values to go along with the item.
@@ -160,16 +175,18 @@ type rule = {
   // predicate.
   next: item_expr[],
 };
+*/
 
-function makeRule({
-  variables,
-  left,
-  right,
-  ignore,
-  predicate,
-  probability,
-  next,
-}: {
+function makeRule(
+  {
+    variables,
+    left,
+    right,
+    ignore,
+    predicate,
+    probability,
+    next,
+  } /*: {
   variables?: var_id[],
   left?: context_rule[],
   right?: context_rule[],
@@ -177,7 +194,8 @@ function makeRule({
   predicate?: expr,
   probability?: number,
   next: item_expr[],
-}): rule {
+}*/
+) /*: rule*/ {
   return {
     variables: variables || [],
     left: left || [],
@@ -192,11 +210,7 @@ function makeRule({
 // Attempt to bind the given rules against the given context, while ignoring
 // items with the IDs in `ignore`. If binding fails, returns null, otherwise
 // returns an object with one entry for each variable bound by the context.
-function tryBindContext(
-  rules: context_rule[],
-  context: item[],
-  ignore: item_id[]
-) {
+function tryBindContext(rules, context, ignore) {
   const stack = [];
   const bindings = {};
 
@@ -262,16 +276,16 @@ function tryBindContext(
 // successfully, this function returns the bindings for the successful
 // application of the rule, otherwise it returns null.
 function tryBindRule(
-  rule: rule,
-  parameters: value[],
-  left: item[],
-  right: item[]
-): ?{ [var_id]: value } {
+  rule /*: rule*/,
+  parameters /*: value[]*/,
+  left /*: item[]*/,
+  right /*: item[]*/
+) /*: ?{ [var_id]: value }*/ {
   if (rule.variables.length != parameters.length) {
     return null;
   }
 
-  let bindings: { [var_id]: value } = {};
+  let bindings = {};
   for (let i = 0; i < rule.variables.length; i++) {
     bindings[rule.variables[i]] = parameters[i];
   }
@@ -305,17 +319,21 @@ function tryBindRule(
   return bindings;
 }
 
+/*::
 export type rule_set = { [item_id]: rule[] };
+*/
 
 // A helper function for making rule sets, along with propagating ignore sets
 // into each rule.
-function makeRuleSet({
-  ignore,
-  rules,
-}: {
+function makeRuleSet(
+  {
+    ignore,
+    rules,
+  } /*: {
   ignore?: item_id[],
   rules: { [item_id]: { ignore?: item_id[], next: item_expr[] }[] },
-}): rule_set {
+}*/
+) /*: rule_set*/ {
   const result = {};
   for (let key in rules) {
     const existing = rules[key];
@@ -329,7 +347,7 @@ function makeRuleSet({
 // Rewrite an input string given an L-system.
 // This is the heart of the L-system; this is what makes it go. Call this in
 // a loop to evolve the system.
-function rewrite(state: item[], rules: rule_set): item[] {
+function rewrite(state /*: item[]*/, rules /*: rule_set*/) /*: item[]*/ {
   // Select a match at random from the lsit of supplied matches, respecting
   // individual rule probabilities.
   function pickMatch(matches) {
@@ -394,7 +412,7 @@ function rewrite(state: item[], rules: rule_set): item[] {
 // symbols stand alone. Parenthesis are handled specially: within a parenthesis
 // symbols must be separated by whitespace. Nested parenthesis represent
 // S-expressions to be evaluated.
-function parseItemExpr(rule_value: string): item_expr[] {
+function parseItemExpr(rule_value /*: string*/) /*: item_expr[]*/ {
   let i = 0;
   function isSpace(code) {
     return code == /* */ 32 || code == /*\n*/ 10 || code == /*\r*/ 13;
@@ -451,7 +469,7 @@ function parseItemExpr(rule_value: string): item_expr[] {
       return rule_value.substr(start, i - start);
     }
   }
-  function parseExpr(): item_expr {
+  function parseExpr() {
     let result = parseSExpression();
     if (typeof result == "string") {
       return [result, []];
@@ -487,7 +505,10 @@ function parseItemExpr(rule_value: string): item_expr[] {
   return symbols;
 }
 
-function itemExpr(chunks: string[], ...vals: any[]): item_expr[] {
+function itemExpr(
+  chunks /*: string[]*/,
+  ...vals /*: any[]*/
+) /*: item_expr[]*/ {
   // One big string...
   let rule_value = "";
   for (let i = 0; i < chunks.length; i++) {

@@ -1,12 +1,14 @@
 // @flow
 // @format
 const { mat4, vec3, vec4 } = require("gl-matrix");
-const { itemExpr, makeRuleSet, rewrite } = require("./lsystem");
+const { rewrite } = require("./lsystem");
 const { getFlatTriangleShader, getLineShader } = require("./shader");
 const systems = require("./systems");
 
+/*::
 import type { item_expr } from "./lsystem";
 import type { Mat4, Vec3, Vec4 } from "gl-matrix";
+*/
 
 const { initial, angle, initial_steps, rules } = systems.rando_flower;
 
@@ -62,9 +64,12 @@ const cyl = (function() {
   };
 })();
 
-const DEBUG_NORMAL_COLOR = vec4.fromValues(1, 1, 1, 1);
+// This dumb helper is used to make casting easier when using flow comment
+// syntax.
+const as_any = x => /*:: ( */ x /*:: :any) */;
 
 class RenderContext {
+  /*::
   origin: Vec3;
   ending: Vec3;
   color: Vec4;
@@ -84,6 +89,7 @@ class RenderContext {
 
   line_positions;
   line_colors;
+  */
 
   constructor() {
     this.origin = vec3.fromValues(0, 0, 0);
@@ -223,7 +229,7 @@ class RenderContext {
 
           vec4.sub(tv1, tv1, tv0);
           vec4.sub(tv2, tv2, tv0);
-          vec3.cross((tv2: any), (tv2: any), (tv1: any));
+          vec3.cross(as_any(tv2), as_any(tv2), as_any(tv1));
 
           vec4.add(this.triangle_normals[ti0], this.triangle_normals[ti0], tv2);
           vec4.add(this.triangle_normals[ti1], this.triangle_normals[ti1], tv2);
@@ -247,7 +253,6 @@ class RenderContext {
   render(state, config) {
     let { step_length, angle_delta } = config;
     const state_stack = [];
-    const poly_stack = [];
 
     // These head and left vectors are somewhat arbitrary?
     const head_vector = vec3.fromValues(0, 0, -1);
@@ -257,7 +262,6 @@ class RenderContext {
 
     // TODO: Actually initialize by head/left/up?
     let current_matrix = mat4.create();
-    let poly_depth = 0;
 
     vec3.scale(head_vector, head_vector, step_length);
 
@@ -618,6 +622,7 @@ if (resetButton) {
 }
 
 function logDebugRender() {
+  // eslint-disable-next-line no-console
   console.log(
     DEBUG_RENDER_LIMIT,
     state

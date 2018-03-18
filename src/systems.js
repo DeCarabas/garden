@@ -2,6 +2,7 @@
 // @format
 const { itemExpr, makeRuleSet } = require("./lsystem");
 
+/*::
 import type { item, rule_set } from "./lsystem";
 
 type system = {
@@ -10,12 +11,13 @@ type system = {
   initial_steps: number,
   rules: rule_set,
 };
+*/
 
 function toRadians(degrees) {
   return degrees * (Math.PI / 180.0);
 }
 
-const systems: { [string]: system } = {
+const systems /*: { [string]: system }*/ = {
   // debug
   debug: {
     initial: [["F", []]],

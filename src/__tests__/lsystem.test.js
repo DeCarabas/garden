@@ -9,10 +9,10 @@ const {
   tryBindRule,
 } = require("../lsystem");
 const expect = require("expect");
+/*::
 declare var describe: (string, () => void) => void;
 declare var it: (string, () => void) => void;
-
-// import type item from ('../lsystem');
+*/
 
 describe("evalExpression", () => {
   it("evals numbers", () => expect(evalExpression(5, {})).toBe(5));
@@ -47,7 +47,7 @@ describe("evalExpression", () => {
 });
 
 /** Split a string into individual items without values, for testing. */
-function _is(s): [string, any[]][] {
+function _is(s) {
   return s.split("").map(c => [c, []]);
 }
 

@@ -1,6 +1,6 @@
 // @flow
 // @format
-function initShaderProgram(gl: WebGLRenderingContext, vsSource, fsSource) {
+function initShaderProgram(gl /*: WebGLRenderingContext*/, vsSource, fsSource) {
   function getShaderType(type) {
     if (type == "vertex") {
       return gl.VERTEX_SHADER;
@@ -15,6 +15,7 @@ function initShaderProgram(gl: WebGLRenderingContext, vsSource, fsSource) {
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      // eslint-disable-next-line no-console
       console.error(
         "An error occurred compiling the shader",
         type,
@@ -40,6 +41,7 @@ function initShaderProgram(gl: WebGLRenderingContext, vsSource, fsSource) {
   gl.linkProgram(shaderProgram);
 
   if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+    // eslint-disable-next-line no-console
     console.error(
       "Unable to initialize the shader program: " +
         (gl.getProgramInfoLog(shaderProgram) || "")
@@ -111,7 +113,7 @@ function bindFloatAttribute(gl, attribute, buffer) {
   gl.enableVertexAttribArray(attribute);
 }
 
-function getFlatTriangleShader(gl: WebGLRenderingContext) {
+function getFlatTriangleShader(gl /*: WebGLRenderingContext*/) {
   const vsSource = `
   attribute vec4 aVertexPosition;
   attribute vec4 aVertexNormal;
@@ -191,15 +193,15 @@ function getFlatTriangleShader(gl: WebGLRenderingContext) {
   };
 
   function draw(
-    buffers: {
+    buffers /*: {
       position: WebGLBuffer,
       color: WebGLBuffer,
       normal: WebGLBuffer,
       index: WebGLBuffer,
-    },
-    vertexCount: number,
-    projectionMatrix: Float32Array,
-    modelViewMatrix: Float32Array
+    }*/,
+    vertexCount /*: number*/,
+    projectionMatrix /*: Float32Array*/,
+    modelViewMatrix /*: Float32Array*/
   ) {
     gl.useProgram(info.program);
     bindVec3Attribute(
@@ -232,7 +234,7 @@ function getFlatTriangleShader(gl: WebGLRenderingContext) {
   return { draw };
 }
 
-function getLineShader(gl: WebGLRenderingContext) {
+function getLineShader(gl /*: WebGLRenderingContext*/) {
   const vsSource = `
   // Position of the point in 3-space.
   attribute vec4 aPosition;
@@ -330,19 +332,19 @@ function getLineShader(gl: WebGLRenderingContext) {
   };
 
   function draw(
-    buffers: {
+    buffers /*: {
       position: WebGLBuffer,
       next: WebGLBuffer,
       prev: WebGLBuffer,
       direction: WebGLBuffer,
       color: WebGLBuffer,
       index: WebGLBuffer,
-    },
-    vertexCount: number,
-    projectionMatrix: Float32Array,
-    modelViewMatrix: Float32Array,
-    thickness: number,
-    miter: boolean
+    }*/,
+    vertexCount /*: number*/,
+    projectionMatrix /*: Float32Array*/,
+    modelViewMatrix /*: Float32Array*/,
+    thickness /*: number*/,
+    miter /*: boolean*/
   ) {
     const aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
 
