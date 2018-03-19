@@ -84,8 +84,8 @@ class RenderContext {
   triangle_indices;
   triangle_normals;
 
-  positions: Vec3[];
-  colors: Vec4[];
+  positions;
+  colors;
 
   line_positions;
   line_colors;
