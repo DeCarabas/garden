@@ -7,7 +7,7 @@
     "build": "webpack",
     "test": "jest",
     "flow": "flow",
-    "serve": "serviette --serve=./dist 'npm run build'"
+    "serve": "serviette --serve=./dist npm run build"
   },
   "author": "john@d0ty.me",
   "license": "ISC",

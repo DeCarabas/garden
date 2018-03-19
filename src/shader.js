@@ -254,12 +254,17 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
   // The width of the line at this point.
   attribute float aThickness;
 
+  // The width of the line border at this point.
+  attribute float aBorderWidth;
+
   uniform mat4 uModelViewMatrix;
   uniform mat4 uProjectionMatrix;
   uniform float uAspectRatio;
   uniform int uMiter; // 1 if you want to do mitering between segments.
 
   varying lowp vec4 vColor;
+  varying highp float vDistanceFromCenter;
+  varying lowp float vBorderWidth;
 
   void main() {
     vec2 aspect = vec2(uAspectRatio, 1.0);
@@ -302,15 +307,25 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
     gl_Position = currentProjected + offset;
 
     vColor = aVertexColor;
+    vDistanceFromCenter = aDirection;
+    vBorderWidth = aBorderWidth;
   }
   `;
 
   const fsSource = `
   varying lowp vec4 vColor;
+  varying highp float vDistanceFromCenter;
+  varying lowp float vBorderWidth;
 
   void main() {
-    // Lines aren't lit.
-    gl_FragColor = vColor;
+    // vDistanceFromCenter runs from -1 to +1.
+    if (vBorderWidth > 0.0 && (1.0 - abs(vDistanceFromCenter)) < vBorderWidth) {
+        // Line border.
+        gl_FragColor = vec4(0, 0, 0, 1.0);
+    } else {
+        // Line color. (Lines aren't lit.)
+        gl_FragColor = vColor;
+    }
   }
   `;
 
@@ -318,11 +333,12 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
   const info = {
     program: shader.program,
     attribLocations: {
-      position: shader.attribute("aPosition"),
-      next: shader.attribute("aPositionNext"),
-      prev: shader.attribute("aPositionPrev"),
-      direction: shader.attribute("aDirection"),
+      borderWidth: shader.attribute("aBorderWidth"),
       color: shader.attribute("aVertexColor"),
+      direction: shader.attribute("aDirection"),
+      next: shader.attribute("aPositionNext"),
+      position: shader.attribute("aPosition"),
+      prev: shader.attribute("aPositionPrev"),
       thickness: shader.attribute("aThickness"),
     },
     uniformLocations: {
@@ -335,13 +351,14 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
 
   function draw(
     buffers /*: {
-      position: WebGLBuffer,
-      next: WebGLBuffer,
-      prev: WebGLBuffer,
-      direction: WebGLBuffer,
-      thickness: WebGLBuffer,
+      borderWidth: WebGLBuffer,
       color: WebGLBuffer,
+      direction: WebGLBuffer,
       index: WebGLBuffer,
+      next: WebGLBuffer,
+      position: WebGLBuffer,
+      prev: WebGLBuffer,
+      thickness: WebGLBuffer,
     }*/,
     vertexCount /*: number*/,
     projectionMatrix /*: Float32Array*/,
@@ -356,6 +373,11 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
     bindVec3Attribute(gl, info.attribLocations.prev, buffers.prev);
     bindFloatAttribute(gl, info.attribLocations.direction, buffers.direction);
     bindFloatAttribute(gl, info.attribLocations.thickness, buffers.thickness);
+    bindFloatAttribute(
+      gl,
+      info.attribLocations.borderWidth,
+      buffers.borderWidth
+    );
     bindVec4Attribute(gl, info.attribLocations.color, buffers.color);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
 

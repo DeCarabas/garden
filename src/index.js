@@ -90,6 +90,7 @@ class RenderContext {
   line_positions;
   line_colors;
   line_thickness;
+  line_borders;
   */
 
   constructor() {
@@ -110,6 +111,7 @@ class RenderContext {
     this.line_positions = [];
     this.line_colors = [];
     this.line_thickness = [];
+    this.line_borders = [];
 
     this.positions = [];
     this.colors = [];
@@ -172,10 +174,12 @@ class RenderContext {
       const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
 
       const LINE_THICKNESS = 0.2;
+      const BORDER_THICKNESS = 0.5;
 
       this.line_positions.push(ts, te);
       this.line_colors.push(this.color, this.color);
       this.line_thickness.push(LINE_THICKNESS, LINE_THICKNESS);
+      this.line_borders.push(BORDER_THICKNESS, BORDER_THICKNESS);
     }
   }
 
@@ -209,6 +213,7 @@ class RenderContext {
           this.line_positions.push(this.positions[curr], this.positions[next]);
           this.line_colors.push(OUTLINE_COLOR, OUTLINE_COLOR);
           this.line_thickness.push(0.05, 0.05);
+          this.line_borders.push(0, 0);
         }
 
         for (let i = 0; i < this.positions.length; i++) {
@@ -348,6 +353,7 @@ function createBuffers(gl) {
       prev: gl.createBuffer(),
       color: gl.createBuffer(),
       thickness: gl.createBuffer(),
+      borderWidth: gl.createBuffer(),
       index: gl.createBuffer(),
       index_count: 0,
     },
@@ -392,6 +398,17 @@ function fillLineBuffers(gl, buffers, obj) {
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.thickness);
   gl.bufferData(gl.ARRAY_BUFFER, thickness, gl.STATIC_DRAW);
+
+  const borderWidth = new Float32Array(obj.line_borders.length * 2);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.line_borders.length; i++) {
+      borderWidth[c++] = obj.line_borders[i];
+      borderWidth[c++] = obj.line_borders[i];
+    }
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.borderWidth);
+  gl.bufferData(gl.ARRAY_BUFFER, borderWidth, gl.STATIC_DRAW);
 
   const next = new Float32Array(position.length);
   for (let i = 0; i < position.length - 1; i++) {
