@@ -251,10 +251,12 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
   // The color of the line.
   attribute vec4 aVertexColor;
 
+  // The width of the line at this point.
+  attribute float aThickness;
+
   uniform mat4 uModelViewMatrix;
   uniform mat4 uProjectionMatrix;
   uniform float uAspectRatio;
-  uniform float uThickness;
   uniform int uMiter; // 1 if you want to do mitering between segments.
 
   varying lowp vec4 vColor;
@@ -272,7 +274,7 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
     vec2 nextScreen = nextProjected.xy / nextProjected.w * aspect;
 
     // Work out what direction to offset by, and how much to offset by.
-    float len = uThickness;
+    float len = aThickness;
     vec2 dir = vec2(0.0, 0.0);
     if (currentScreen == previousScreen) {
       // current is the first point in the line segment.
@@ -289,7 +291,7 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
       vec2 miter = vec2(-tangent.y, tangent.x);
 
       dir = tangent;
-      len = uThickness / dot(miter, perp);
+      len = aThickness / dot(miter, perp);
     }
 
     vec2 normal = vec2(-dir.y, dir.x);
@@ -321,12 +323,12 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
       prev: shader.attribute("aPositionPrev"),
       direction: shader.attribute("aDirection"),
       color: shader.attribute("aVertexColor"),
+      thickness: shader.attribute("aThickness"),
     },
     uniformLocations: {
       projectionMatrix: shader.uniform("uProjectionMatrix"),
       modelViewMatrix: shader.uniform("uModelViewMatrix"),
       aspectRatio: shader.uniform("uAspectRatio"),
-      thickness: shader.uniform("uThickness"),
       miter: shader.uniform("uMiter"),
     },
   };
@@ -337,13 +339,13 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
       next: WebGLBuffer,
       prev: WebGLBuffer,
       direction: WebGLBuffer,
+      thickness: WebGLBuffer,
       color: WebGLBuffer,
       index: WebGLBuffer,
     }*/,
     vertexCount /*: number*/,
     projectionMatrix /*: Float32Array*/,
     modelViewMatrix /*: Float32Array*/,
-    thickness /*: number*/,
     miter /*: boolean*/
   ) {
     const aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
@@ -353,6 +355,7 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
     bindVec3Attribute(gl, info.attribLocations.next, buffers.next);
     bindVec3Attribute(gl, info.attribLocations.prev, buffers.prev);
     bindFloatAttribute(gl, info.attribLocations.direction, buffers.direction);
+    bindFloatAttribute(gl, info.attribLocations.thickness, buffers.thickness);
     bindVec4Attribute(gl, info.attribLocations.color, buffers.color);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
 
@@ -367,7 +370,6 @@ function getLineShader(gl /*: WebGLRenderingContext*/) {
       modelViewMatrix
     );
     gl.uniform1f(info.uniformLocations.aspectRatio, aspectRatio);
-    gl.uniform1f(info.uniformLocations.thickness, thickness);
     gl.uniform1i(info.uniformLocations.miter, miter ? 1 : 0);
 
     {

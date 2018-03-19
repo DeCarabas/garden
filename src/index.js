@@ -89,6 +89,7 @@ class RenderContext {
 
   line_positions;
   line_colors;
+  line_thickness;
   */
 
   constructor() {
@@ -108,6 +109,7 @@ class RenderContext {
 
     this.line_positions = [];
     this.line_colors = [];
+    this.line_thickness = [];
 
     this.positions = [];
     this.colors = [];
@@ -129,7 +131,7 @@ class RenderContext {
   }
 
   line(matrix, length) {
-    const LINES_ARE_POLYGONS = true;
+    const LINES_ARE_POLYGONS = false;
 
     if (LINES_ARE_POLYGONS) {
       const mark = this.markTempVec4();
@@ -169,8 +171,11 @@ class RenderContext {
       const ts = vec3.transformMat4(vec3.create(), this.origin, matrix);
       const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
 
+      const LINE_THICKNESS = 0.2;
+
       this.line_positions.push(ts, te);
       this.line_colors.push(this.color, this.color);
+      this.line_thickness.push(LINE_THICKNESS, LINE_THICKNESS);
     }
   }
 
@@ -203,6 +208,7 @@ class RenderContext {
           const next = (i + 1) % this.positions.length;
           this.line_positions.push(this.positions[curr], this.positions[next]);
           this.line_colors.push(OUTLINE_COLOR, OUTLINE_COLOR);
+          this.line_thickness.push(0.05, 0.05);
         }
 
         for (let i = 0; i < this.positions.length; i++) {
@@ -341,6 +347,7 @@ function createBuffers(gl) {
       next: gl.createBuffer(),
       prev: gl.createBuffer(),
       color: gl.createBuffer(),
+      thickness: gl.createBuffer(),
       index: gl.createBuffer(),
       index_count: 0,
     },
@@ -373,7 +380,18 @@ function fillLineBuffers(gl, buffers, obj) {
     }
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.direction);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(direction), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, direction, gl.STATIC_DRAW);
+
+  const thickness = new Float32Array(obj.line_thickness.length * 2);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.line_thickness.length; i++) {
+      thickness[c++] = obj.line_thickness[i];
+      thickness[c++] = obj.line_thickness[i];
+    }
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.thickness);
+  gl.bufferData(gl.ARRAY_BUFFER, thickness, gl.STATIC_DRAW);
 
   const next = new Float32Array(position.length);
   for (let i = 0; i < position.length - 1; i++) {
@@ -576,7 +594,6 @@ function draw(gl, cubeRotation, plant) {
     buffers.lines.index_count,
     flaProjection,
     flaModelView,
-    0.05,
     false
   );
 }
