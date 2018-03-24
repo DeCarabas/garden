@@ -11,7 +11,7 @@ import type { item_expr } from "./lsystem";
 import type { Mat4, Vec3, Vec4 } from "gl-matrix";
 */
 
-const { initial, angle, initial_steps, rules } = systems.debug;
+const { initial, angle, initial_steps, rules } = systems.rando_flower;
 
 let state;
 let DEBUG_RENDER_LIMIT;
@@ -502,16 +502,16 @@ function fillLineBuffers(gl, buffers, obj) {
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
   buffers.index_count = indices.length;
 
-  console.log({
-    original_positions: obj.line_positions,
-    position,
-    next,
-    prev,
-    direction,
-    thickness,
-    borderWidth,
-    indices,
-  });
+  // console.log({
+  //   original_positions: obj.line_positions,
+  //   position,
+  //   next,
+  //   prev,
+  //   direction,
+  //   thickness,
+  //   borderWidth,
+  //   indices,
+  // });
 }
 
 function fillTriangleBuffers(gl, buffers, obj) {
