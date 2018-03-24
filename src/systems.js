@@ -23,7 +23,7 @@ const systems /*: { [string]: system }*/ = {
   rando_flower: {
     initial: [["plant", []]],
     angle: toRadians(18),
-    initial_steps: 5,
+    initial_steps: 3, // 5,
     rules: makeRuleSet({
       rules: {
         plant: [
