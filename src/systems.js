@@ -170,7 +170,7 @@ const systems /*: { [string]: system }*/ = {
         ],
         internode: [
           {
-            next: itemExpr`F (sec) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)`,
+            next: itemExpr`F (seg) [// & & (leaf)] [// ^ ^ (leaf)] F (seg)`,
           },
         ],
         seg: [
