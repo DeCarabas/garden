@@ -4,13 +4,14 @@ const { mat4, vec3, vec4 } = require("gl-matrix");
 const { rewrite } = require("./lsystem");
 const { getFlatTriangleShader, getLineShader } = require("./shader");
 const systems = require("./systems");
+const { toRadians } = require("./util");
 
 /*::
 import type { item_expr } from "./lsystem";
 import type { Mat4, Vec3, Vec4 } from "gl-matrix";
 */
 
-const { initial, angle, initial_steps, rules } = systems.rando_flower;
+const { initial, angle, initial_steps, rules } = systems.debug;
 
 let state;
 let DEBUG_RENDER_LIMIT;
@@ -332,10 +333,6 @@ class RenderContext {
   }
 }
 
-function toRadians(degrees) {
-  return degrees * (Math.PI / 180.0);
-}
-
 // HTML mechanics, WebGL bullshit.
 function createBuffers(gl) {
   return {
@@ -377,6 +374,56 @@ function fillLineBuffers(gl, buffers, obj) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
   gl.bufferData(gl.ARRAY_BUFFER, position, gl.STATIC_DRAW);
 
+  const next = new Float32Array(position.length);
+  {
+    let c = 0;
+    for (let i = 0; i < obj.line_positions.length - 1; i++) {
+      const pos = obj.line_positions[i + 1];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+    }
+    {
+      const pos = obj.line_positions[obj.line_positions.length - 1];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+    }
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.next);
+  gl.bufferData(gl.ARRAY_BUFFER, next, gl.STATIC_DRAW);
+
+  const prev = new Float32Array(position.length);
+  {
+    let c = 0;
+    {
+      const pos = obj.line_positions[0];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+    }
+    for (let i = 1; i < obj.line_positions.length; i++) {
+      const pos = obj.line_positions[i - 1];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+      next[c++] = pos[0];
+      next[c++] = pos[1];
+      next[c++] = pos[2];
+    }
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.prev);
+  gl.bufferData(gl.ARRAY_BUFFER, prev, gl.STATIC_DRAW);
+
   const direction = new Float32Array(obj.line_positions.length * 2);
   {
     let c = 0;
@@ -409,22 +456,6 @@ function fillLineBuffers(gl, buffers, obj) {
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.borderWidth);
   gl.bufferData(gl.ARRAY_BUFFER, borderWidth, gl.STATIC_DRAW);
-
-  const next = new Float32Array(position.length);
-  for (let i = 0; i < position.length - 1; i++) {
-    next[i] = position[i + 1];
-  }
-  next[next.length - 1] = position[position.length - 1];
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.next);
-  gl.bufferData(gl.ARRAY_BUFFER, next, gl.STATIC_DRAW);
-
-  const prev = new Float32Array(position.length);
-  prev[0] = position[0];
-  for (let i = 1; i < position.length; i++) {
-    prev[i] = position[i - 1];
-  }
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffers.prev);
-  gl.bufferData(gl.ARRAY_BUFFER, prev, gl.STATIC_DRAW);
 
   const color = new Float32Array(obj.line_colors.length * 8);
   {
@@ -470,6 +501,17 @@ function fillLineBuffers(gl, buffers, obj) {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.index);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
   buffers.index_count = indices.length;
+
+  console.log({
+    original_positions: obj.line_positions,
+    position,
+    next,
+    prev,
+    direction,
+    thickness,
+    borderWidth,
+    indices,
+  });
 }
 
 function fillTriangleBuffers(gl, buffers, obj) {
@@ -557,21 +599,27 @@ const render_config = {
 function draw(gl, cubeRotation, plant) {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  if (plant.positions.length == 0 && plant.triangle_positions.length == 0) {
+  if (
+    plant.line_positions.length == 0 &&
+    plant.triangle_positions.length == 0
+  ) {
     return;
   }
 
   // Step 1: Measure the boundaries of the plant.
-  let min = vec3.clone(plant.positions[0] || plant.triangle_positions[0]);
-  let max = vec3.clone(plant.positions[0] || plant.triangle_positions[0]);
-  for (let i = 1; i < plant.positions.length; i++) {
-    vec3.min(min, min, plant.positions[i]);
-    vec3.max(max, max, plant.positions[i]);
+  let min = vec3.clone(plant.line_positions[0] || plant.triangle_positions[0]);
+  let max = vec3.clone(plant.line_positions[0] || plant.triangle_positions[0]);
+  for (let i = 1; i < plant.line_positions.length; i++) {
+    vec3.min(min, min, plant.line_positions[i]);
+    vec3.max(max, max, plant.line_positions[i]);
   }
   for (let i = 0; i < plant.triangle_positions.length; i++) {
     vec3.min(min, min, plant.triangle_positions[i]);
     vec3.max(max, max, plant.triangle_positions[i]);
   }
+
+  vec3.min(min, min, vec3.fromValues(-1, -1, -1));
+  vec3.max(max, max, vec3.fromValues(1, 1, 1));
 
   // Let's just look at the middle of the bounding box...
   // (Borrow "center" for a second to figure out the bounding box size.)

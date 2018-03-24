@@ -520,6 +520,15 @@ function itemExpr(
   return parseItemExpr(rule_value);
 }
 
+/*::
+export type system = {
+  initial: item[],
+  angle: number,
+  initial_steps: number,
+  rules: rule_set,
+};
+*/
+
 module.exports = {
   evalExpression,
   itemExpr,
