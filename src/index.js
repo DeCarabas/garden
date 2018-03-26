@@ -11,7 +11,7 @@ import type { item_expr } from "./lsystem";
 import type { Mat4, Vec3, Vec4 } from "gl-matrix";
 */
 
-const { initial, angle, initial_steps, rules } = systems.rando_flower;
+const { initial, angle, initial_steps, rules } = systems.tree;
 
 let state;
 let DEBUG_RENDER_LIMIT;
@@ -71,9 +71,11 @@ const as_any = x => /*:: ( */ x /*:: :any) */;
 
 class RenderContext {
   /*::
-  origin: Vec3;
-  ending: Vec3;
-  color: Vec4;
+  origin;
+  ending;
+  color;
+  current_thickness;
+  current_border;
 
   temp_vec4;
   temp_vec4_pos;
@@ -98,6 +100,11 @@ class RenderContext {
     this.origin = vec3.fromValues(0, 0, 0);
     this.ending = vec3.fromValues(0, 0, 0);
     this.color = vec4.fromValues(1, 1, 1, 1);
+
+    const LINE_THICKNESS = 0.2;
+    this.current_thickness = LINE_THICKNESS;
+    const BORDER_THICKNESS = 0.5;
+    this.current_border = BORDER_THICKNESS;
 
     this.temp_vec4 = [];
     this.temp_vec4_pos = 0;
@@ -174,13 +181,10 @@ class RenderContext {
       const ts = vec3.transformMat4(vec3.create(), this.origin, matrix);
       const te = vec3.transformMat4(vec3.create(), this.ending, matrix);
 
-      const LINE_THICKNESS = 0.2;
-      const BORDER_THICKNESS = 0.5;
-
       this.line_positions.push(ts, te);
       this.line_colors.push(this.color, this.color);
-      this.line_thickness.push(LINE_THICKNESS, LINE_THICKNESS);
-      this.line_borders.push(BORDER_THICKNESS, BORDER_THICKNESS);
+      this.line_thickness.push(this.current_thickness, this.current_thickness);
+      this.line_borders.push(this.current_border, this.current_border);
     }
   }
 
@@ -194,6 +198,8 @@ class RenderContext {
       positions: this.positions,
       colors: this.colors,
       current_color: this.color,
+      current_border: this.current_border,
+      current_thickness: this.current_thickness,
     });
     this.positions = [];
     this.colors = [];
@@ -252,17 +258,45 @@ class RenderContext {
       }
     }
 
-    const { positions, colors, current_color } = this.stack.pop();
+    const {
+      positions,
+      colors,
+      current_color,
+      current_border,
+      current_thickness,
+    } = this.stack.pop();
     this.positions = positions;
     this.colors = colors;
     this.color = current_color;
+    this.current_border = current_border;
+    this.current_thickness = current_thickness;
   }
 
   setColor(r, g, b) {
     this.color = vec4.fromValues(r, g, b, 1);
   }
 
+  setThickness(t) {
+    this.current_thickness = t;
+  }
+
+  setBorder(t) {
+    this.current_border = t;
+  }
+
   render(state, config) {
+    function _arg(current, vals, default_) {
+      if (vals.length == 0) {
+        return default_;
+      } else if (vals.length == 1) {
+        if (typeof vals[0] != "number") {
+          throw Error("Lengths must be numbers");
+        }
+        return vals[0];
+      } else {
+        throw Error("Wrong number of args for " + current);
+      }
+    }
     let { step_length, angle_delta } = config;
     const state_stack = [];
 
@@ -275,39 +309,54 @@ class RenderContext {
     // TODO: Actually initialize by head/left/up?
     let current_matrix = mat4.create();
 
-    vec3.scale(head_vector, head_vector, step_length);
-
+    const temp_vector = vec3.create();
     for (let i = 0; i < state.length && i < DEBUG_RENDER_LIMIT; i++) {
       const [current, vals] = state[i];
       if (current == "F") {
         // Draw a "line" (always draws along -Z, which is also head.)
-        this.line(current_matrix, step_length);
-        mat4.translate(current_matrix, current_matrix, head_vector);
+        const length = _arg(current, vals, step_length);
+        this.line(current_matrix, length);
+
+        vec3.scale(temp_vector, head_vector, length);
+        mat4.translate(current_matrix, current_matrix, temp_vector);
       } else if (current == "f") {
-        mat4.translate(current_matrix, current_matrix, head_vector);
+        // Move along head_vector without drawing a line.
+        const length = _arg(current, vals, step_length);
+        vec3.scale(temp_vector, head_vector, length);
+        mat4.translate(current_matrix, current_matrix, temp_vector);
       } else if (current == "+") {
-        mat4.rotate(current_matrix, current_matrix, angle_delta, up_vector);
+        const delta = _arg(current, vals, angle_delta);
+        mat4.rotate(current_matrix, current_matrix, delta, up_vector);
       } else if (current == "-") {
-        mat4.rotate(current_matrix, current_matrix, -angle_delta, up_vector);
+        const delta = _arg(current, vals, angle_delta);
+        mat4.rotate(current_matrix, current_matrix, -delta, up_vector);
       } else if (current == "&") {
-        mat4.rotate(current_matrix, current_matrix, angle_delta, left_vector);
+        const delta = _arg(current, vals, angle_delta);
+        mat4.rotate(current_matrix, current_matrix, delta, left_vector);
       } else if (current == "^") {
-        mat4.rotate(current_matrix, current_matrix, -angle_delta, left_vector);
+        const delta = _arg(current, vals, angle_delta);
+        mat4.rotate(current_matrix, current_matrix, -delta, left_vector);
       } else if (current == "\\") {
-        mat4.rotate(current_matrix, current_matrix, angle_delta, head_vector);
+        const delta = _arg(current, vals, angle_delta);
+        mat4.rotate(current_matrix, current_matrix, delta, head_vector);
       } else if (current == "/") {
-        mat4.rotate(current_matrix, current_matrix, -angle_delta, head_vector);
+        const delta = _arg(current, vals, angle_delta);
+        mat4.rotate(current_matrix, current_matrix, -delta, head_vector);
       } else if (current == "|") {
         mat4.rotate(current_matrix, current_matrix, Math.PI, up_vector);
       } else if (current == "[") {
         state_stack.push({
           matrix: mat4.clone(current_matrix),
           color: vec4.clone(this.color),
+          thickness: this.current_thickness,
+          border: this.current_border,
         });
       } else if (current == "]") {
-        const { matrix, color } = state_stack.pop();
+        const { matrix, color, thickness, border } = state_stack.pop();
         current_matrix = matrix;
         this.color = color;
+        this.current_thickness = thickness;
+        this.current_border = border;
       } else if (current == "{") {
         this.pushPolygon();
       } else if (current == ".") {
@@ -325,9 +374,28 @@ class RenderContext {
             throw Error("Args to color must be numbers");
           }
           this.setColor(r, g, b);
+        } else if (vals.length == 1) {
+          const rgb = vals[0];
+          if (typeof rgb != "number") {
+            throw Error("Args to color must be numbers");
+          }
+          const r = ((rgb & 0xff0000) >> 16) / 255.0;
+          const g = ((rgb & 0x00ff00) >> 8) / 255.0;
+          const b = ((rgb & 0x0000ff) >> 0) / 255.0;
+          this.setColor(r, g, b);
         } else {
           throw Error("Wrong number of arguments to color");
         }
+      } else if (current == "line") {
+        if (vals.length != 2) {
+          throw Error("Wrong number of arguments to line");
+        }
+        const [thickness, border] = vals;
+        if (typeof thickness != "number" || typeof border != "number") {
+          throw Error("Args to border must be numbers");
+        }
+        this.current_thickness = thickness;
+        this.current_border = border;
       }
     }
   }
@@ -358,6 +426,10 @@ function createBuffers(gl) {
 }
 
 function fillLineBuffers(gl, buffers, obj) {
+  if (obj.line_positions.length == 0) {
+    buffers.index_count = 0;
+    return;
+  }
   const position = new Float32Array(obj.line_positions.length * 6);
   {
     let c = 0;

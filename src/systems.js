@@ -20,6 +20,50 @@ const systems /*: { [string]: system }*/ = {
     }),
   },
 
+  // How do I sort out:
+  // - Using these systems to do turtle graphics
+  // - Using these systems to model development
+  tree: {
+    initial: [["branch", []]],
+    angle: toRadians(18),
+    initial_steps: 10,
+    rules: makeRuleSet({
+      rules: {
+        branch: [
+          {
+            next: itemExpr`[(color #01796F) (branchlet) (& .3) (branchlet) (^ .3) (branchlet)]`,
+          },
+        ],
+        branchlet: [
+          {
+            next: itemExpr`
+                (F .5) [(& 1) (+ 2) (meta_cluster)]
+                (F .5) [(& 1) (- 2) (meta_cluster)]
+                (F .5) [(& 1) (meta_cluster)]
+            `,
+          },
+        ],
+        meta_cluster: [
+          { next: itemExpr`(F .1)[(line 0.1 0.3) (cluster)(cluster)]` },
+        ],
+        cluster: [
+          { next: itemExpr`(fan) (/ .9) (fan) (/ .8) (fan) (/ .75) (fan)` },
+        ],
+        fan: [
+          {
+            next: itemExpr`[
+                (+ 0.2) (needle 1.0)
+                (+ 0.31) (needle 0.8)
+                (+ 0.31) (needle 0.6)
+                (+ 0.31) (needle 0.5)
+            ]`,
+          },
+        ],
+        needle: [{ variables: ["l"], next: itemExpr`[(color #01796F) (F l)]` }],
+      },
+    }),
+  },
+
   rando_flower: {
     initial: [["plant", []]],
     angle: toRadians(18),

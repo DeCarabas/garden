@@ -420,6 +420,13 @@ function parseItemExpr(rule_value /*: string*/) /*: item_expr[]*/ {
   function isDigit(code) {
     return code >= /*0*/ 48 && code <= /*9*/ 57;
   }
+  function isHexDigit(code) {
+    return (
+      isDigit(code) ||
+      (code >= /*A*/ 65 && code <= /*F*/ 70) ||
+      (code >= /*a*/ 97 && code <= /*f*/ 102)
+    );
+  }
   function isSymbolCharacter(code) {
     return code != /*(*/ 40 && code != /*)*/ 41 && !isSpace(code);
   }
@@ -442,7 +449,7 @@ function parseItemExpr(rule_value /*: string*/) /*: item_expr[]*/ {
         i++;
       }
       return result;
-    } else if (isDigit(code)) {
+    } else if (isDigit(code) || code == /*.*/ 46) {
       // Number.
       let start = i;
       i++;
@@ -456,6 +463,15 @@ function parseItemExpr(rule_value /*: string*/) /*: item_expr[]*/ {
         }
       }
       return Number.parseFloat(rule_value.substr(start, i - start));
+    } else if (code == /*#*/ 35) {
+      // Hex number.
+      i++;
+      let start = i;
+      i++;
+      while (i < rule_value.length && isHexDigit(rule_value.charCodeAt(i))) {
+        i++;
+      }
+      return Number.parseInt(rule_value.substr(start, i - start), 16);
     } else {
       // Symbol.
       let start = i;
