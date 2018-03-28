@@ -7,6 +7,39 @@ const { toRadians } = require("./util");
 import type { system } from "./lsystem";
 */
 
+/*::
+type tree_params = {
+  d1: number,
+  d2: number,
+  a: number,
+  lr: number,
+  vr: number,
+  n: number,
+};
+*/
+
+function makeTree({ d1, d2, a, lr, vr, n } /*:tree_params*/) /*:system*/ {
+  return {
+    initial: [["!", [1]], ["F", [200]], ["/", [toRadians(45)]], ["A", []]],
+    angle: toRadians(45),
+    initial_steps: n,
+    rules: makeRuleSet({
+      rules: {
+        A: [
+          {
+            next: itemExpr`
+                (! ${vr})(F 50)[(& ${a})(F 50)A](/ ${d1})
+                [(& ${a})(F 50)A](/ ${d2})[(& ${a})(F 50)A]
+            `,
+          },
+        ],
+        F: [{ variables: ["l"], next: itemExpr`(F (* l ${lr}))` }],
+        "!": [{ variables: ["w"], next: itemExpr`(! (* w ${vr}))` }],
+      },
+    }),
+  };
+}
+
 const systems /*: { [string]: system }*/ = {
   // debug
   debug: {
@@ -19,6 +52,15 @@ const systems /*: { [string]: system }*/ = {
       },
     }),
   },
+
+  otree: makeTree({
+    d1: toRadians(94.74),
+    d2: toRadians(132.63),
+    a: toRadians(18.95),
+    lr: 1.109,
+    vr: 1.732,
+    n: 8,
+  }),
 
   // How do I sort out:
   // - Using these systems to do turtle graphics

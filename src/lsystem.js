@@ -83,9 +83,13 @@ function evalExpression(
         invariant(typeof args[0] == "number", "Args must be numbers");
         invariant(typeof args[1] == "number", "Args must be numbers");
         return dbg(args[0] < args[1]);
+      case "&":
       case "&&":
+      case "and":
         return dbg(args.every(a => a));
+      case "|":
       case "||":
+      case "or":
         return dbg(args.some(a => a));
       default:
         throw Error("I don't know about function " + fn.toString());

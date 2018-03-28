@@ -396,6 +396,15 @@ class RenderContext {
         }
         this.current_thickness = thickness;
         this.current_border = border;
+      } else if (current == "!") {
+        if (vals.length != 1) {
+          throw Error("Wrong number of arguments to !");
+        }
+        const [thickness] = vals;
+        if (typeof thickness != "number") {
+          throw Error("Args to ! must be numbers");
+        }
+        this.current_thickness = thickness;
       }
     }
   }
