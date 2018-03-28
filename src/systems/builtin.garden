@@ -1,0 +1,75 @@
+(defun forward (&optional length)
+  "Draw a line LENGTH units long along the head vector.
+
+If LENGTH is nil, the global length variable is used instead."
+  (built-in))
+
+(defun skip (&optional length)
+  "Move LENGTH units along the head vector, not drawing a line."
+  (built-in))
+
+(defun rotate (direction &optional deg)
+  "Rotate the turtle DIRECTION by an angle of DEG degrees.
+
+DIRECTION is one of ':up', ':down', ':left', ':right', or ':roll', and
+corresponds to the heading vectors as follows:
+
+  - ':up' means moving -DEG degrees around the X (left) axis
+  - ':down' means moving DEG degrees around the X (left) axis
+  - ':left' means moving DEG degrees around the Y (up) axis
+  - ':right' means moving -DEG degrees around the Y (up) axis
+  - ':roll' means moving DEG degrees around the Z (forward) axis
+"
+  (built-in))
+
+(defun flip ()
+  "Rotate the turtle 180 degrees around the up axis."
+  (rotate :left 180))
+
+(defun set-width (width &optional border)
+  "Set the current line WIDTH, and optionally the BORDER width.
+
+If BORDER is nil, then the border is unchanged."
+  (built-in))
+
+(defun color (r g b)
+  "Set the current color to R G B."
+  (built-in))
+
+(defun vertex ()
+  "Establish a vertex at the current position."
+  (built-in))
+
+(defun list (&rest values)
+  "Construct a new list containing VALUES."
+  (built-in))
+
+(defun push-branch ()
+  "Push the current branching context, starting a new branch."
+  (built-in))
+
+(defun pop-branch()
+  "Pop the current branching context."
+  (built-in))
+
+(defun push-polygon ()
+  "Push a new polygon context, starting a new polygon."
+  (built-in))
+
+(defun pop-polygon ()
+  "Pop the current polygon context."
+  (built-in))
+
+(defun append (&rest sequences)
+  "Concatenate the SEQUENCES, which must all be lists.
+
+We don't really work with CONS cells in this lisp yet, so this doesn't have
+the behavior where the last item is just the CDR of the list."
+  (built-in))
+
+;; Special forms include DEFSYSTEM DEFRULE DEFUN DEFMACRO
+(defmacro branch (&rest body)
+  (append '((push-branch)) body '((pop-branch))))
+
+(defmacro polygon (&rest body)
+  (append '((push-polygon)) body '((pop-polygon))))

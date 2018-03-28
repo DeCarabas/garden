@@ -1,0 +1,129 @@
+(defsystem rando_flower
+  "Stochastic flower from Algorithmic Beauty of Plants, fig 1.28"
+  :initial (<plant>)
+  :angle 18
+  :initial_steps 3)
+
+(defrule plant ()
+  "The core plant rule."
+  (color 0 0.4 0)
+  <internode>
+  (rotate :left)
+  (branch <plant>
+          (rotate :left)
+          <flower>)
+  (rotate :left (- (* 2 angle)))
+  (rotate :roll (- (* 2 angle)))
+  (branch (rotate :left (- (* 2 angle)))
+          <leaf>)
+  (internode)
+  (branch (rotate :left (* 2 angle))
+          <leaf>)
+  (rotate :right)
+  (branch <plant>
+          <flower>)
+  (rotate :left (* 2 angle))
+  <plant>
+  <flower>)
+
+(defrule internode ()
+  "I don't know what an internode is."
+  (forward)
+  <seg>
+  (branch (rotate :roll (- (* 2 angle)))
+          (rotate :down (* 2 angle))
+          <leaf>)
+  (branch (rotate :roll (- (* 2 angle)))
+          (rotate :up (* 2 angle))
+          <leaf>)
+  (forward)
+  <seg>)
+
+;; Segments.
+(defrule seg ()
+  "One kind of segment in the plant."
+  <seg>
+  (branch (rotate :roll (- (* 2 angle)))
+          (rotate :down (* 2 angle))
+          <leaf>)
+  (branch (rotate :roll (- (* 2 angle)))
+          (rotate :up (* 2 angle))
+          <leaf>)
+  (forward)
+  <seg>)
+
+(defrule seg ()
+  "Another kind of segment in the plant."
+  <seg>
+  (forward)
+  <seg>)
+
+(defrule seg ()
+  "A third kind of segment in the plant."
+  <seg>)
+
+;; Geometry
+(defrule leaf ()
+  "A leaf"
+  (branch (polygon (color 0 1 0)
+                   (rotate :left)
+                   (skip)
+                   (vertex)
+                   (rotate :right)
+                   (skip (* 2 length))
+                   (vertex)
+                   (rotate :right)
+                   (skip)
+                   (vertex)
+                   (rotate :left)
+                   (flip)
+                   (rotate :left)
+                   (skip)
+                   (vertex)
+                   (rotate :right)
+                   (skip (* 2 length))
+                   (vertex)
+                   (rotate :right)
+                   (skip)
+                   (vertex))))
+
+(defrule flower ()
+  "A flower"
+  (branch (rotate :right (* 3 angle))
+          <pedicel>
+          (rotate :roll (- angle))
+          <wedge>
+          (rotate :roll (- (* 4 angle)))
+          <wedge>
+          (rotate :roll (- (* 4 angle)))
+          <wedge>
+          (rotate :roll (- (* 4 angle)))
+          <wedge>
+          (rotate :roll (- (* 4 angle)))
+          <wedge>))
+
+(defrule pedicel ()
+  "A ... pedicel?"
+  (forward)
+  (forward))
+
+(defrule wedge ()
+  "One part of a flower."
+  (branch (color 1 1 1)
+          (rotate :up)
+          (forward))
+  (branch (polygon (color 0 0 1)
+                   (rotate :down (* 4 angle))
+                   (rotate :right)
+                   (skip)
+                   (vertex)
+                   (rotate :left)
+                   (skip)
+                   (vertex)
+                   (flip)
+                   (rotate :right)
+                   (skip)
+                   (vertex)
+                   (rotate :left)
+                   (skip)
+                   (vertex))))

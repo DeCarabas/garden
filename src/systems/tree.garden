@@ -1,0 +1,35 @@
+(defsystem tree
+  "Algorithmic Beauty of Plants, Ch 2 Fig 2.8"
+  :initial ((set-width 1)
+            (forward 200)
+            (rotate :roll (- 45))
+            <A>)
+  :angle 18
+  :initial_steps 3)
+
+(defvar vr "Width increase rate" 1.732)
+(defvar a "Branching angle" 18.95)
+(defvar d1 "Divergence angle 1" 94.74)
+(defvar d2 "Divergence angle 2" 132.63)
+(defvar lr "Elongation rate" 1.109)
+
+(defrule A ()
+  (set-width vr)
+  (forward 50)
+  (branch (rotate :down a)
+          (forward 50)
+          <A>)
+  (rotate :roll (- d1))
+  (branch (rotate :down a)
+          (forward 50)
+          <A>)
+  (rotate :roll (- d2))
+  (branch (rotate :down a)
+          (forward 50)
+          <A>))
+
+(defrule forward (length)
+  (forward (* length lr)))
+
+(defrule set-width (width)
+  (set-width (* width vr)))
