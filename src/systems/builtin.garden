@@ -48,7 +48,7 @@ If BORDER is nil, then the border is unchanged."
   "Push the current branching context, starting a new branch."
   (built-in))
 
-(defun pop-branch()
+(defun pop-branch ()
   "Pop the current branching context."
   (built-in))
 

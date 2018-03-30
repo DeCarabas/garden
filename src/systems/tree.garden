@@ -3,7 +3,7 @@
   :initial ((set-width 1)
             (forward 200)
             (rotate :roll (- 45))
-            <A>)
+            [A])
   :angle 18
   :initial_steps 3)
 
@@ -18,15 +18,15 @@
   (forward 50)
   (branch (rotate :down a)
           (forward 50)
-          <A>)
+          [A])
   (rotate :roll (- d1))
   (branch (rotate :down a)
           (forward 50)
-          <A>)
+          [A])
   (rotate :roll (- d2))
   (branch (rotate :down a)
           (forward 50)
-          <A>))
+          [A]))
 
 (defrule forward (length)
   (forward (* length lr)))
