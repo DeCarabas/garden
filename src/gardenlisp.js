@@ -84,6 +84,7 @@ function new_environment(parent /*:?Environment*/) /*: Environment*/ {
 class Func {
   /*::
   form: Value[];
+  closure: Environment;
   name: ?string;
   doc: ?string;
   arg_names: string[];
@@ -94,6 +95,7 @@ class Func {
   */
   constructor(props) {
     this.form = props.form || [SYM_NIL];
+    this.closure = props.closure || new_environment(null);
     this.name = props.name;
     this.doc = props.doc;
     this.arg_names = props.arg_names || [];
@@ -108,8 +110,7 @@ class Func {
       return this.native(args, environment);
     }
 
-    const new_env = new_environment(environment);
-
+    const new_env = new_environment(this.closure);
     if (args.length < this.arg_names.length) {
       throw Error("Too few args for " + (this.name || "lambda"));
     }
@@ -796,6 +797,7 @@ function lambda_(values, environment) {
 
   return new Func({
     form: values.slice(first_form),
+    closure: environment,
     doc,
     arg_names,
     opt_args,
@@ -930,6 +932,61 @@ const stdlib /*: Environment*/ = {
           result.push(...values[i]);
         }
         return result;
+      },
+    }),
+
+    print: new Func({
+      name: "print",
+      is_macro: false,
+      native: (values, _) => {
+        console.log(...values.map(v => format_value(v)));
+        return SYM_NIL;
+      },
+    }),
+
+    letrec: new Func({
+      name: "letrec",
+      is_macro: true,
+      native: (values, environment) => {
+        const varlist = values[0];
+        if (!Array.isArray(varlist)) {
+          throw eval_error(varlist, "Missing variable list in let");
+        }
+
+        const env = new_environment(environment);
+        for (let i = 0; i < varlist.length; i++) {
+          const pair = varlist[i];
+          if (Array.isArray(pair)) {
+            if (pair.length < 1 || pair.length > 2) {
+              throw eval_error(pair, "Variable list must be a list of pairs");
+            }
+            const v = pair[0];
+            if (!(v instanceof Sym)) {
+              throw eval_error(v, "Variable names must be symbols");
+            }
+            env.variables[v.text] = SYM_NIL;
+            if (pair.length == 2) {
+              env.variables[v.text] = eval_expr(pair[1], env);
+            }
+          } else if (pair instanceof Sym) {
+            env.variables[pair.text] = SYM_NIL;
+          } else {
+            throw eval_error(
+              pair,
+              "Variable names must be one symbol, or a symbol and an " +
+                "expression."
+            );
+          }
+        }
+
+        // I guess you can just letrec with no body, which will just return nil.
+        if (values.length == 1) {
+          return SYM_NIL;
+        }
+        for (let i = 1; i < values.length - 1; i++) {
+          eval_expr(values[i], env);
+        }
+        return eval_expr(values[values.length - 1], env);
       },
     }),
   },
