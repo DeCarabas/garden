@@ -1,66 +1,67 @@
 (defsystem rando_flower
   "Stochastic flower from Algorithmic Beauty of Plants, fig 1.28"
-  :initial (<plant>)
+  :initial ([plant])
   :angle 18
   :initial_steps 3)
 
 (defrule plant ()
   "The core plant rule."
   (color 0 0.4 0)
-  <internode>
+  [internode]
   (rotate :left)
-  (branch <plant>
+  (branch [plant]
           (rotate :left)
-          <flower>)
+          [flower])
   (rotate :left (- (* 2 angle)))
   (rotate :roll (- (* 2 angle)))
   (branch (rotate :left (- (* 2 angle)))
-          <leaf>)
+          [leaf])
   (internode)
   (branch (rotate :left (* 2 angle))
-          <leaf>)
+          [leaf])
   (rotate :right)
-  (branch <plant>
-          <flower>)
+  (branch [plant]
+          [flower])
   (rotate :left (* 2 angle))
-  <plant>
-  <flower>)
+  [plant]
+  [flower])
+
 
 (defrule internode ()
   "I don't know what an internode is."
   (forward)
-  <seg>
+  [seg]
   (branch (rotate :roll (- (* 2 angle)))
           (rotate :down (* 2 angle))
-          <leaf>)
+          [leaf])
   (branch (rotate :roll (- (* 2 angle)))
           (rotate :up (* 2 angle))
-          <leaf>)
+          [leaf])
   (forward)
-  <seg>)
+  [seg])
 
 ;; Segments.
 (defrule seg ()
   "One kind of segment in the plant."
-  <seg>
+  [seg]
   (branch (rotate :roll (- (* 2 angle)))
           (rotate :down (* 2 angle))
-          <leaf>)
+          [leaf])
   (branch (rotate :roll (- (* 2 angle)))
           (rotate :up (* 2 angle))
-          <leaf>)
+          [leaf])
   (forward)
-  <seg>)
+  [seg])
 
 (defrule seg ()
   "Another kind of segment in the plant."
-  <seg>
+  [seg]
   (forward)
-  <seg>)
+  [seg])
 
 (defrule seg ()
   "A third kind of segment in the plant."
-  <seg>)
+  [seg])
 
 ;; Geometry
 (defrule leaf ()
@@ -90,17 +91,17 @@
 (defrule flower ()
   "A flower"
   (branch (rotate :right (* 3 angle))
-          <pedicel>
+          [pedicel]
           (rotate :roll (- angle))
-          <wedge>
+          [wedge]
           (rotate :roll (- (* 4 angle)))
-          <wedge>
+          [wedge]
           (rotate :roll (- (* 4 angle)))
-          <wedge>
+          [wedge]
           (rotate :roll (- (* 4 angle)))
-          <wedge>
+          [wedge]
           (rotate :roll (- (* 4 angle)))
-          <wedge>))
+          [wedge]))
 
 (defrule pedicel ()
   "A ... pedicel?"
