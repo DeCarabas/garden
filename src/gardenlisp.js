@@ -1,7 +1,167 @@
 // @flow
 // @format
 
-// I wonder if there is already one of these things?
+// Values in gardenlisp.
+/*::
+type Value = number | string | Func | Sym | Value[];
+*/
+
+// Numbers.
+const numberp = (value /*:Value*/) /*: %checks*/ => typeof value === "number";
+function assert_num(value /*:Value*/, message /*:string*/) {
+  if (!numberp(value)) {
+    throw eval_error(value, message || "Value must be a number");
+  }
+  return value;
+}
+
+// Lists.
+const listp = (value /*:Value*/) /*: %checks*/ => Array.isArray(value);
+function assert_list(value /*:Value*/, message /*:string*/) {
+  if (!listp(value)) {
+    throw eval_error(value, message || "Value must be a list");
+  }
+  return value;
+}
+
+// Strings
+const stringp = (value /*:Value*/) /*: %checks*/ => typeof value === "string";
+function assert_string(value /*:Value*/, message /*:string*/) {
+  if (!stringp(value)) {
+    throw eval_error(value, message || "Value must be a string");
+  }
+  return value;
+}
+
+// Symbols.
+class Sym {
+  /*::
+    text: string;
+  */
+  constructor(text /*:string*/) {
+    this.text = text;
+  }
+
+  toString() {
+    return "Sym{" + this.text + "}";
+  }
+}
+
+const _symbol_table = {};
+function sym(text /*:string*/) /*:Sym*/ {
+  const existing = _symbol_table[text];
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const new_sym = new Sym(text);
+  _symbol_table[text] = new_sym;
+  return new_sym;
+}
+const symbolp = (value /*:Value*/) /*: %checks */ => value instanceof Sym;
+function assert_sym(value /*:Value*/, message /*:string*/) /*:Sym*/ {
+  if (!symbolp(value)) {
+    throw eval_error(value, message || "Value must be a symbol");
+  }
+  return value;
+}
+
+const SYM_T = sym("t");
+const SYM_NIL = sym("nil");
+const SYM_QUOTE = sym("quote");
+const SYM_DEFER = sym("defer");
+const SYM_OPTIONAL = sym("&optional");
+const SYM_REST = sym("&rest");
+
+// Functions
+const progn = (list, environment) => {
+  let last_value = SYM_NIL;
+  for (let i = 0; i < list.length; i++) {
+    last_value = eval_expr(list[i], environment);
+  }
+  return last_value;
+};
+
+class Func {
+  /*::
+  form: Value[];
+  closure: Environment;
+  name: ?string;
+  doc: ?string;
+  arg_names: string[];
+  opt_args: string[];
+  rest_arg: ?string;
+  is_macro: boolean;
+  native: ?((Value[], Environment) => Value);
+  */
+  constructor(
+    props /*: {
+    form?: Value[],
+    closure?: Environment,
+    name?: string,
+    doc?: string,
+    arg_names?: string[],
+    opt_args?: string[],
+    rest_arg?: string,
+    is_macro?: boolean,
+    native?: (Value[], Environment) => Value,
+  }*/
+  ) {
+    this.form = props.form || [SYM_NIL];
+    this.closure = props.closure || new_environment(null);
+    this.name = props.name;
+    this.doc = props.doc;
+    this.arg_names = props.arg_names || [];
+    this.opt_args = props.opt_args || [];
+    this.rest_arg = props.rest_arg;
+    this.is_macro = !!props.is_macro;
+    this.native = props.native;
+  }
+
+  invoke(args /*:Value[]*/, environment /*:Environment*/) {
+    if (this.native) {
+      return this.native(args, environment);
+    }
+
+    const new_env = new_environment(this.closure);
+    if (args.length < this.arg_names.length) {
+      throw Error("Too few args for " + (this.name || "lambda"));
+    }
+
+    if (
+      args.length > this.arg_names.length + this.opt_args.length &&
+      !this.rest_arg
+    ) {
+      throw Error("Too many args for " + (this.name || "lambda"));
+    }
+
+    for (let i = 0; i < this.arg_names.length; i++) {
+      const arg_name = this.arg_names[i];
+      const arg_value = args[i];
+      new_env.values[arg_name] = arg_value;
+    }
+
+    for (let i = 0; i < this.opt_args.length; i++) {
+      const arg_name = this.opt_args[i];
+      const arg_value_index = i + this.arg_names.length;
+      const arg_value =
+        arg_value_index < args.length ? args[arg_value_index] : SYM_NIL;
+      new_env.values[arg_name] = arg_value;
+    }
+
+    const rest_arg = this.rest_arg;
+    if (rest_arg) {
+      const arg_value_index = this.arg_names.length + this.opt_args.length;
+      const arg_value = args.slice(arg_value_index);
+      new_env.values[rest_arg] = arg_value;
+    }
+
+    return progn(this.form, new_env);
+  }
+}
+
+const functionp = (value /*:Value*/) /*:%checks*/ => value instanceof Func;
+
 // Character constants for reading.
 const C_0 = "0".charCodeAt(0);
 const C_9 = "9".charCodeAt(0);
@@ -40,115 +200,6 @@ const C_UNDERSCORE = "_".charCodeAt(0);
 const C_Z = "Z".charCodeAt(0);
 const C_a = "a".charCodeAt(0);
 const C_z = "z".charCodeAt(0);
-
-class Sym {
-  /*::
-    text: string;
-  */
-  constructor(text) {
-    this.text = text;
-  }
-
-  toString() {
-    return "Sym{" + this.text + "}";
-  }
-}
-
-const _symbol_table = {};
-function sym(text /*:string*/) /*:Sym*/ {
-  const existing = _symbol_table[text];
-  if (existing !== undefined) {
-    return existing;
-  }
-
-  const new_sym = new Sym(text);
-  _symbol_table[text] = new_sym;
-  return new_sym;
-}
-
-const SYM_T = sym("t");
-const SYM_NIL = sym("nil");
-const SYM_QUOTE = sym("quote");
-const SYM_DEFER = sym("defer");
-const SYM_OPTIONAL = sym("&optional");
-const SYM_REST = sym("&rest");
-
-function new_environment(parent /*:?Environment*/) /*: Environment*/ {
-  return {
-    variables: {},
-    functions: {},
-    parent: parent,
-  };
-}
-
-class Func {
-  /*::
-  form: Value[];
-  closure: Environment;
-  name: ?string;
-  doc: ?string;
-  arg_names: string[];
-  opt_args: string[];
-  rest_arg: ?string;
-  is_macro: boolean;
-  native: ?((Value[], Environment) => Value);
-  */
-  constructor(props) {
-    this.form = props.form || [SYM_NIL];
-    this.closure = props.closure || new_environment(null);
-    this.name = props.name;
-    this.doc = props.doc;
-    this.arg_names = props.arg_names || [];
-    this.opt_args = props.opt_args || [];
-    this.rest_arg = props.rest_arg;
-    this.is_macro = !!props.is_macro;
-    this.native = props.native;
-  }
-
-  invoke(args /*:Value[]*/, environment /*:Environment*/) {
-    if (this.native) {
-      return this.native(args, environment);
-    }
-
-    const new_env = new_environment(this.closure);
-    if (args.length < this.arg_names.length) {
-      throw Error("Too few args for " + (this.name || "lambda"));
-    }
-
-    if (
-      args.length > this.arg_names.length + this.opt_args.length &&
-      !this.rest_arg
-    ) {
-      throw Error("Too many args for " + (this.name || "lambda"));
-    }
-
-    for (let i = 0; i < this.arg_names.length; i++) {
-      const arg_name = this.arg_names[i];
-      const arg_value = args[i];
-      new_env.variables[arg_name] = arg_value;
-    }
-
-    for (let i = 0; i < this.opt_args.length; i++) {
-      const arg_name = this.opt_args[i];
-      const arg_value_index = i + this.arg_names.length;
-      const arg_value =
-        arg_value_index < args.length ? args[arg_value_index] : SYM_NIL;
-      new_env.variables[arg_name] = arg_value;
-    }
-
-    const rest_arg = this.rest_arg;
-    if (rest_arg) {
-      const arg_value_index = this.arg_names.length + this.opt_args.length;
-      const arg_value = args.slice(arg_value_index);
-      new_env.variables[rest_arg] = arg_value;
-    }
-
-    for (let i = 0; i < this.form.length - 1; i++) {
-      eval_expr(this.form[i], new_env);
-    }
-    return eval_expr(this.form[this.form.length - 1], new_env);
-  }
-}
 
 function isWhitespace(code) {
   return code === C_SPACE || code === C_TAB || code === C_NL || code === C_CR;
@@ -250,10 +301,10 @@ class SourceMap {
 
 class SourceError extends Error {
   /*::
-    line;
-    col;
+    line: number;
+    col: number;
   */
-  constructor(line, col, ...params) {
+  constructor(line /*:number*/, col /*:number*/, ...params /*:any[]*/) {
     // Pass remaining arguments (including vendor specific ones) to parent
     // constructor
     super(...params);
@@ -392,18 +443,28 @@ function tokenize(str /*:string*/, filename /*:(void | string)*/) {
 }
 
 /*::
-type Value = number | string | Func | Sym | Value[];
-*/
-
-/*::
 type SourceLocation = {| start: number, end: number, lines: SourceMap |};
 */
 
+const _srcloc = Symbol("_srcloc");
 function set_srcloc(obj /*: any*/, loc /*: SourceLocation*/) {
-  obj._srcloc = loc;
+  // // Symbols are interned.
+  // if (symbolp(obj)) {
+  //   return;
+  // }
+  // // Strings can't have properties added to them.
+  // if (stringp(obj)) {
+  //   return;
+  // }
+  // // Nor can numbers?
+  // if (numberp(obj)) {
+  //   return;
+  // }
+  // obj[_srcloc] = loc;
 }
 function get_srcloc(obj /*: any*/) /*: ?SourceLocation*/ {
-  return obj._srcloc || null;
+  return obj[_srcloc] || null;
+  //return obj._srcloc || null;
 }
 
 function read_(
@@ -595,13 +656,13 @@ function read_file(
 }
 
 function format_value(value /*:Value*/) /*: string*/ {
-  if (value instanceof Sym) {
+  if (symbolp(value)) {
     return value.text;
   }
-  if (value instanceof Func) {
+  if (functionp(value)) {
     return "<Func " + (value.name || "lambda") + ">";
   }
-  if (typeof value === "string") {
+  if (stringp(value)) {
     let result = '"';
     for (let i = 0; i < value.length; i++) {
       const c = value[i];
@@ -625,36 +686,30 @@ function format_value(value /*:Value*/) /*: string*/ {
     }
     return result + '"';
   }
-  if (Array.isArray(value)) {
+  if (listp(value)) {
     return "(" + value.map(v => format_value(v)).join(" ") + ")";
   }
   return value.toString();
 }
 
 /*::
-type Environment = {
-  variables: { [string]: any },
-  functions: { [string]: Function },
+export type Environment = {|
+  values: { [string]: Value },
   parent: ?Environment,
-};
+|};
 */
 
-function find_function(form, name, environment) {
-  let f;
-  while (environment) {
-    f = environment.functions[name];
-    if (f !== undefined) {
-      return f;
-    }
-    environment = environment.parent;
-  }
-  throw eval_error(form, "Symbol's definition as a function is void: " + name);
+function new_environment(parent /*:?Environment*/) /*: Environment*/ {
+  return {
+    values: {},
+    parent: parent,
+  };
 }
 
-function find_variable(form, name, environment) {
+function find_value(form, name, environment) {
   let f;
   while (environment) {
-    f = environment.variables[name];
+    f = environment.values[name];
     if (f !== undefined) {
       return f;
     }
@@ -663,7 +718,7 @@ function find_variable(form, name, environment) {
   throw eval_error(form, "Symbol's definition as a variable is void: " + name);
 }
 
-function eval_error(form, message) {
+function eval_error(form /*:Value*/, message /*:string*/) {
   const srcloc = get_srcloc(form);
   if (srcloc) {
     return error(srcloc.lines, srcloc.start, message);
@@ -684,7 +739,7 @@ function eval_symbol(
     return form;
   }
 
-  return find_variable(form, form.text, environment);
+  return find_value(form, form.text, environment);
 }
 
 function eval_list(
@@ -696,12 +751,8 @@ function eval_list(
   }
 
   const first_elem = form[0];
-  const first_val =
-    first_elem instanceof Sym
-      ? find_function(first_elem, first_elem.text, environment)
-      : eval_expr(first_elem, environment);
-
-  if (!(first_val instanceof Func)) {
+  const first_val = eval_expr(first_elem, environment);
+  if (!functionp(first_val)) {
     throw eval_error(
       first_elem,
       "Invalid function " + format_value(first_elem)
@@ -729,35 +780,28 @@ function eval_expr(
   form /*: Value*/,
   environment /*: Environment*/
 ) /*: Value*/ {
-  if (
-    typeof form === "number" ||
-    typeof form === "string" ||
-    form instanceof Func
-  ) {
-    return form;
-  } else if (Array.isArray(form)) {
+  if (listp(form)) {
     return eval_list(form, environment);
-  } else {
+  } else if (symbolp(form)) {
     return eval_symbol(form, environment);
+  } else {
+    return form;
   }
 }
 
 function lambda_(values, environment) {
   // First arg is an argument list.
-  const argnames = values[0];
-  if (!Array.isArray(argnames)) {
-    throw eval_error(argnames, "Second argument must be an arg list");
-  }
+  const argnames = assert_list(
+    values[0],
+    "Second argument must be an arg list"
+  );
 
   const arg_names = [];
   const opt_args = [];
   let processing_optional = false;
   let rest_arg;
   for (let i = 0; i < argnames.length; i++) {
-    const arg_name = argnames[i];
-    if (!(arg_name instanceof Sym)) {
-      throw eval_error(arg_name, "Argument name must be a symbol");
-    }
+    const arg_name = assert_sym(argnames[i], "Argument name must be a symbol");
 
     if (arg_name === SYM_OPTIONAL) {
       if (processing_optional) {
@@ -775,10 +819,10 @@ function lambda_(values, environment) {
         );
       }
 
-      const rest_sym = argnames[i + 1];
-      if (!(rest_sym instanceof Sym)) {
-        throw eval_error(rest_sym, "Argument name must be a symbol");
-      }
+      const rest_sym = assert_sym(
+        argnames[i + 1],
+        "Argument name must be a symbol"
+      );
       rest_arg = rest_sym.text;
       break;
     } else if (processing_optional) {
@@ -790,7 +834,7 @@ function lambda_(values, environment) {
 
   let doc;
   let first_form = 1;
-  if (typeof values[first_form] === "string") {
+  if (stringp(values[first_form])) {
     doc = values[first_form];
     first_form = 2;
   }
@@ -807,8 +851,7 @@ function lambda_(values, environment) {
 
 const stdlib /*: Environment*/ = {
   parent: null,
-  variables: {},
-  functions: {
+  values: {
     lambda: new Func({
       name: "lambda",
       is_macro: true, // Works because eval(<func>) yields <func>.
@@ -819,15 +862,11 @@ const stdlib /*: Environment*/ = {
       name: "defun",
       is_macro: true,
       native: function defun(values, environment) {
-        const name = values[0];
-        if (!(name instanceof Sym)) {
-          throw eval_error(name, "First argument must be a symbol");
-        }
-
+        const name = assert_sym(values[0], "First argument must be a symbol");
         const func = lambda_(values.slice(1), environment);
         func.name = name.text;
 
-        environment.functions[func.name] = func;
+        environment.values[func.name] = func;
         return SYM_NIL;
       },
     }),
@@ -836,16 +875,12 @@ const stdlib /*: Environment*/ = {
       name: "defmacro",
       is_macro: true,
       native: function defmacro(values, environment) {
-        const name = values[0];
-        if (!(name instanceof Sym)) {
-          throw eval_error(name, "First argument must be a symbol");
-        }
-
+        const name = assert_sym(values[0], "First argument must be a symbol");
         const func = lambda_(values.slice(1), environment);
         func.name = name.text;
         func.is_macro = true;
 
-        environment.functions[func.name] = func;
+        environment.values[func.name] = func;
         return SYM_NIL;
       },
     }),
@@ -857,28 +892,50 @@ const stdlib /*: Environment*/ = {
 
     "+": new Func({
       name: "+",
-      native: (values, _) => values.reduce((s, x) => x + s, 0),
+      native: (values, _) =>
+        values.reduce(
+          (s, x) => assert_num(x, "Arguments to + must be numbers") + s,
+          0
+        ),
     }),
 
     "*": new Func({
       name: "*",
-      native: (values, _) => values.reduce((s, x) => x * s, 1),
+      native: (values, _) =>
+        values.reduce(
+          (s, x) => assert_num(x, "Arguments to * must be numbers") * s,
+          1
+        ),
     }),
 
     "-": new Func({
       name: "-",
-      native: (values, _) =>
-        values.length === 1
-          ? -values[0]
-          : values.slice(1).reduce((s, x) => s - x, values[0]),
+      native: (values, _) => {
+        const msg = "Arguments to - must be numbers";
+        return values.length === 1
+          ? -assert_num(values[0], msg)
+          : values
+              .slice(1)
+              .reduce(
+                (s, x) => s - assert_num(x, msg),
+                assert_num(values[0], msg)
+              );
+      },
     }),
 
     "/": new Func({
       name: "/",
-      native: (values, _) =>
-        values.length === 1
-          ? 1.0 / values[0]
-          : values.slice(1).reduce((s, x) => s / x, values[0]),
+      native: (values, _) => {
+        const msg = "Arguments to / must be numbers";
+        return values.length === 1
+          ? 1.0 / assert_num(values[0], msg)
+          : values
+              .slice(1)
+              .reduce(
+                (s, x) => s / assert_num(x, msg),
+                assert_num(values[0], msg)
+              );
+      },
     }),
 
     if: new Func({
@@ -900,10 +957,7 @@ const stdlib /*: Environment*/ = {
             return SYM_NIL;
           }
 
-          for (let i = 2; i < values.length - 1; i++) {
-            eval_expr(values[i], environment);
-          }
-          return eval_expr(values[values.length - 1], environment);
+          return progn(values.slice(2), environment);
         }
       },
     }),
@@ -929,7 +983,9 @@ const stdlib /*: Environment*/ = {
       native: (values, _) => {
         const result = [];
         for (let i = 0; i < values.length; i++) {
-          result.push(...values[i]);
+          result.push(
+            ...assert_list(values[i], "Arguments to append must be lists")
+          );
         }
         return result;
       },
@@ -944,32 +1000,32 @@ const stdlib /*: Environment*/ = {
       },
     }),
 
+    defer: new Func({
+      name: "defer",
+      is_macro: true,
+      native: (values, _) => [SYM_DEFER, values],
+    }),
+
     letrec: new Func({
       name: "letrec",
       is_macro: true,
       native: (values, environment) => {
-        const varlist = values[0];
-        if (!Array.isArray(varlist)) {
-          throw eval_error(varlist, "Missing variable list in let");
-        }
+        const varlist = assert_list(values[0], "Missing variable list in let");
 
         const env = new_environment(environment);
         for (let i = 0; i < varlist.length; i++) {
           const pair = varlist[i];
-          if (Array.isArray(pair)) {
+          if (listp(pair)) {
             if (pair.length < 1 || pair.length > 2) {
               throw eval_error(pair, "Variable list must be a list of pairs");
             }
-            const v = pair[0];
-            if (!(v instanceof Sym)) {
-              throw eval_error(v, "Variable names must be symbols");
-            }
-            env.variables[v.text] = SYM_NIL;
+            const v = assert_sym(pair[0], "Variable names must be symbols");
+            env.values[v.text] = SYM_NIL;
             if (pair.length == 2) {
-              env.variables[v.text] = eval_expr(pair[1], env);
+              env.values[v.text] = eval_expr(pair[1], env);
             }
-          } else if (pair instanceof Sym) {
-            env.variables[pair.text] = SYM_NIL;
+          } else if (symbolp(pair)) {
+            env.values[pair.text] = SYM_NIL;
           } else {
             throw eval_error(
               pair,
@@ -979,25 +1035,25 @@ const stdlib /*: Environment*/ = {
           }
         }
 
-        // I guess you can just letrec with no body, which will just return nil.
-        if (values.length == 1) {
-          return SYM_NIL;
-        }
-        for (let i = 1; i < values.length - 1; i++) {
-          eval_expr(values[i], env);
-        }
-        return eval_expr(values[values.length - 1], env);
+        return progn(values.slice(1), env);
       },
     }),
   },
 };
 
 module.exports = {
+  Func,
+  SYM_NIL,
+  assert_list,
+  assert_num,
+  assert_sym,
+  eval_error,
+  eval_expr,
   format_value,
   new_environment,
   read,
   read_file,
-  sym,
-  eval_expr,
   stdlib,
+  stringp,
+  sym,
 };

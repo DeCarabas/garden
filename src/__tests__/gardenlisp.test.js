@@ -62,7 +62,7 @@ describe("eval_expr", () => {
     expect(eval_expr(sym(":foo"), empty)).toBe(sym(":foo")));
   it("does variables", () => {
     const testenv = new_environment(empty);
-    testenv.variables["foo"] = 264;
+    testenv.values["foo"] = 264;
     expect(eval_expr(sym("foo"), testenv)).toBe(264);
   });
   it("does strings", () => expect(eval_expr("foo", empty)).toBe("foo"));
