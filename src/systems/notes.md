@@ -8,7 +8,7 @@ Here are some notes about the language.
   That means that the program basically describes drawing a picture with turtle graphics.
 
 
-- The one big difference is expressions with `<>`; the arguments to those expressions are evaluated but the rule/function is *not* called.
+- The one big difference is expressions with `[]`; the arguments to those expressions are evaluated but the rule/function is *not* called.
   Instead, those are *only* considered for the rewrite pass.
 
 - The machine re-writes the s-expression according to the rules defined with `defrule`.

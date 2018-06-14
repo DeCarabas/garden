@@ -3,11 +3,12 @@
 
 // Values in gardenlisp.
 /*::
-type Value = number | string | Func | Sym | Value[];
+export type Value = number | string | Func | Sym | Value[];
 */
 
 // Numbers.
-const numberp = (value /*:Value*/) /*: %checks*/ => typeof value === "number";
+const numberp = (value /*:Value*/) /*: boolean %checks*/ =>
+  typeof value === "number";
 function assert_num(value /*:Value*/, message /*:string*/) {
   if (!numberp(value)) {
     throw eval_error(value, message || "Value must be a number");
@@ -16,7 +17,7 @@ function assert_num(value /*:Value*/, message /*:string*/) {
 }
 
 // Lists.
-const listp = (value /*:Value*/) /*: %checks*/ => Array.isArray(value);
+const listp = (value /*:Value*/) /*: boolean %checks*/ => Array.isArray(value);
 function assert_list(value /*:Value*/, message /*:string*/) {
   if (!listp(value)) {
     throw eval_error(value, message || "Value must be a list");
@@ -25,7 +26,8 @@ function assert_list(value /*:Value*/, message /*:string*/) {
 }
 
 // Strings
-const stringp = (value /*:Value*/) /*: %checks*/ => typeof value === "string";
+const stringp = (value /*:Value*/) /*: boolean %checks*/ =>
+  typeof value === "string";
 function assert_string(value /*:Value*/, message /*:string*/) {
   if (!stringp(value)) {
     throw eval_error(value, message || "Value must be a string");
@@ -58,7 +60,8 @@ function sym(text /*:string*/) /*:Sym*/ {
   _symbol_table[text] = new_sym;
   return new_sym;
 }
-const symbolp = (value /*:Value*/) /*: %checks */ => value instanceof Sym;
+const symbolp = (value /*:Value*/) /*: boolean %checks */ =>
+  value instanceof Sym;
 function assert_sym(value /*:Value*/, message /*:string*/) /*:Sym*/ {
   if (!symbolp(value)) {
     throw eval_error(value, message || "Value must be a symbol");
@@ -1046,10 +1049,12 @@ module.exports = {
   SYM_NIL,
   assert_list,
   assert_num,
+  assert_string,
   assert_sym,
   eval_error,
   eval_expr,
   format_value,
+  listp,
   new_environment,
   read,
   read_file,
