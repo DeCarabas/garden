@@ -1,6 +1,6 @@
 // @flow
 // @format
-const invariant = require("invariant");
+const invariant = require("./invariant");
 
 // Parameterized l-systems require expressions; this here implements a little
 // S-expression kinda evaluator over numbers and booleans, which is enough for
@@ -14,6 +14,7 @@ type var_id = string;
 // This dumb helper is used to make casting easier when using flow comment
 // syntax.
 const as_any = x => /*:: ( */ x /*:: :any) */;
+
 
 function evalExpression(
   expr /*: expr*/,
