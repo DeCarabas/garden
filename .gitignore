@@ -61,3 +61,5 @@ typings/
 packages
 xna/game/obj
 xna/game/bin
+xna/content/bin
+xna/content/obj
