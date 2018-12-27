@@ -57,3 +57,7 @@ typings/
 # dotenv environment variables file
 .env
 
+# C# stuff
+packages
+src/game/obj
+src/game/bin

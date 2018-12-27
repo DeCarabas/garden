@@ -1,0 +1,72 @@
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    Microsoft.Net.Native.Compiler (2.2.1) - restriction: >= uap10.1
+      runtime.win10-arm.Microsoft.Net.Native.Compiler (>= 2.2.1)
+      runtime.win10-arm64.Microsoft.Net.Native.Compiler (>= 2.2.1)
+      runtime.win10-x64.Microsoft.Net.Native.Compiler (>= 2.2.1)
+      runtime.win10-x86.Microsoft.Net.Native.Compiler (>= 2.2.1)
+    Microsoft.Net.UWPCoreRuntimeSdk (2.2.3) - restriction: >= uap10.1
+      runtime.win10-arm.Microsoft.Net.UWPCoreRuntimeSdk (>= 2.2.3) - restriction: >= uap10.1
+      runtime.win10-x64.Microsoft.Net.UWPCoreRuntimeSdk (>= 2.2.3) - restriction: >= uap10.1
+      runtime.win10-x86.Microsoft.Net.UWPCoreRuntimeSdk (>= 2.2.3) - restriction: >= uap10.1
+    Microsoft.NETCore.Platforms (2.2) - restriction: >= uap10.1
+    Microsoft.NETCore.UniversalWindowsPlatform (6.1.9) - restriction: >= uap10.0
+      Microsoft.Net.Native.Compiler (>= 2.1.8) - restriction: >= uap10.1
+      Microsoft.Net.UWPCoreRuntimeSdk (>= 2.1.2) - restriction: >= uap10.1
+      Microsoft.NETCore.Platforms (>= 2.0) - restriction: >= uap10.1
+      NETStandard.Library (>= 2.0.3) - restriction: >= uap10.1
+    MonoGame.Framework.DX (3.7.1.189)
+      SharpDX (>= 4.0.1) - restriction: || (>= net45) (>= win81)
+      SharpDX.Direct2D1 (>= 4.0.1) - restriction: || (>= net45) (>= win81)
+      SharpDX.Direct3D11 (>= 4.0.1) - restriction: || (>= net45) (>= win81)
+      SharpDX.Direct3D9 (>= 4.0.1) - restriction: >= net45
+      SharpDX.DXGI (>= 4.0.1) - restriction: || (>= net45) (>= win81)
+      SharpDX.MediaFoundation (>= 4.0.1) - restriction: || (>= net45) (>= win81)
+      SharpDX.XAudio2 (>= 4.0.1) - restriction: || (>= net45) (>= win81)
+      SharpDX.XInput (>= 4.0.1) - restriction: || (>= net45) (>= win81)
+    NETStandard.Library (2.0.3) - restriction: >= uap10.1
+      Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (>= net45) (< netstandard1.3)) (&& (< net45) (>= netstandard1.1) (< netstandard1.2) (< win8)) (&& (< net45) (>= netstandard1.2) (< netstandard1.3) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< netstandard1.4) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.4) (< netstandard1.5) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.5) (< netstandard1.6) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.6) (< netstandard2.0) (< win8) (< wpa81)) (&& (< net45) (>= netstandard2.0) (< win8) (< wpa81)) (&& (>= net46) (< netstandard1.4)) (>= net461) (>= netcoreapp2.0) (&& (>= netstandard1.0) (< portable-net45+win8+wpa81)) (&& (< netstandard1.0) (>= portable-net45+win8) (< win8)) (&& (< netstandard1.0) (< portable-net45+win8) (>= portable-net45+win8+wpa81)) (&& (< netstandard1.0) (>= portable-net45+win8+wp8+wpa81) (< portable-net45+win8+wpa81)) (&& (< netstandard1.0) (>= win8)) (&& (< netstandard1.3) (< win8) (>= wpa81)) (>= uap10.0) (>= wp8)
+    runtime.win10-arm.Microsoft.Net.Native.Compiler (2.2.1) - restriction: >= uap10.1
+      runtime.win10-arm.Microsoft.Net.Native.SharedLibrary (>= 2.2.1)
+    runtime.win10-arm.Microsoft.Net.Native.SharedLibrary (2.2.1) - restriction: >= uap10.1
+    runtime.win10-arm.Microsoft.Net.UWPCoreRuntimeSdk (2.2.3) - restriction: >= uap10.1
+    runtime.win10-arm64.Microsoft.Net.Native.Compiler (2.2.1) - restriction: >= uap10.1
+      runtime.win10-arm64.Microsoft.Net.Native.SharedLibrary (>= 2.2.1)
+    runtime.win10-arm64.Microsoft.Net.Native.SharedLibrary (2.2.1) - restriction: >= uap10.1
+    runtime.win10-x64.Microsoft.Net.Native.Compiler (2.2.1) - restriction: >= uap10.1
+      runtime.win10-x64.Microsoft.Net.Native.SharedLibrary (>= 2.2.1)
+    runtime.win10-x64.Microsoft.Net.Native.SharedLibrary (2.2.1) - restriction: >= uap10.1
+    runtime.win10-x64.Microsoft.Net.UWPCoreRuntimeSdk (2.2.3) - restriction: >= uap10.1
+    runtime.win10-x86.Microsoft.Net.Native.Compiler (2.2.1) - restriction: >= uap10.1
+      runtime.win10-x86.Microsoft.Net.Native.SharedLibrary (>= 2.2.1)
+    runtime.win10-x86.Microsoft.Net.Native.SharedLibrary (2.2.1) - restriction: >= uap10.1
+    runtime.win10-x86.Microsoft.Net.UWPCoreRuntimeSdk (2.2.3) - restriction: >= uap10.1
+    SharpDX (4.2) - restriction: || (>= net45) (>= win81)
+      Microsoft.NETCore.UniversalWindowsPlatform (>= 6.0.8) - restriction: >= uap10.0
+    SharpDX.Direct2D1 (4.2) - restriction: || (>= net45) (>= win81)
+      Microsoft.NETCore.UniversalWindowsPlatform (>= 6.0.8) - restriction: >= uap10.0
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+      SharpDX.DXGI (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+    SharpDX.Direct3D11 (4.2) - restriction: || (>= net45) (>= win81)
+      Microsoft.NETCore.UniversalWindowsPlatform (>= 6.0.8) - restriction: >= uap10.0
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+      SharpDX.DXGI (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+    SharpDX.Direct3D9 (4.2) - restriction: || (&& (>= net40) (< netstandard1.1) (>= win81)) (>= net45)
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.3)) (&& (< net40) (>= netstandard1.3)) (>= net45)
+    SharpDX.DXGI (4.2) - restriction: || (>= net45) (>= win81)
+      Microsoft.NETCore.UniversalWindowsPlatform (>= 6.0.8) - restriction: >= uap10.0
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+    SharpDX.Mathematics (4.2) - restriction: || (&& (>= net40) (< netstandard1.1) (>= win81)) (>= net45)
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+    SharpDX.MediaFoundation (4.2) - restriction: || (>= net45) (>= win81)
+      Microsoft.NETCore.UniversalWindowsPlatform (>= 6.0.8) - restriction: >= uap10.0
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+      SharpDX.Direct3D9 (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (>= net45)
+      SharpDX.DXGI (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+      SharpDX.Mathematics (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (>= net45)
+    SharpDX.XAudio2 (4.2) - restriction: || (>= net45) (>= win81)
+      Microsoft.NETCore.UniversalWindowsPlatform (>= 6.0.8) - restriction: >= uap10.0
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
+    SharpDX.XInput (4.2) - restriction: || (>= net45) (>= win81)
+      Microsoft.NETCore.UniversalWindowsPlatform (>= 6.0.8) - restriction: >= uap10.0
+      SharpDX (>= 4.2) - restriction: || (&& (>= net40) (< netstandard1.1)) (&& (< net40) (>= netstandard1.1)) (>= net45) (>= uap10.0)
