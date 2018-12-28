@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 namespace Garden
 {
@@ -8,6 +9,7 @@ namespace Garden
     {
         public const int Width = 256;
         public const int Height = 256;
+        public const float MaxElevation = 100f;
 
         VertexPositionColor[] vertices;
 
@@ -25,26 +27,49 @@ namespace Garden
         public static Garden Generate()
         {
             var vertices = new VertexPositionColor[Width * Height];
-            int i = 0;
             for (int y = 0; y < Height; y++)
             {
                 for (int x = 0; x < Width; x++)
                 {
-                    float nx = ((float)x / (float)Width) - 0.5f;
-                    float ny = ((float)y / (float)Height) - 0.5f;
+                    float nx = (float)x / (float)Width;
+                    float ny = (float)y / (float)Height;
+                    float elevation = GenerateElevation(nx, ny);
 
-                    float z = SimplexNoise.Generate(7 * nx, 7 * ny);
 
-                    Color color = Color.White * z;
-                    color.A = 255;
-                    vertices[i] = new VertexPositionColor(
-                        new Vector3(x, y, z),
+                    float scale = elevation / MaxElevation;
+                    Color color = Color.Lerp(Color.Black, Color.White, scale);
+
+                    int idx = (y * Width) + x;
+                    vertices[idx] = new VertexPositionColor(
+                        new Vector3(x, elevation, y),
                         color);
-                    i += 1;
                 }
             }
             return new Garden(ref vertices);
         }
+
+        static float GenerateElevation(float nx, float ny)
+        {
+            float elevation = 0;
+
+            int octaves = 8;
+            float max = 0.0f;
+            for (int i = 0; i < octaves; i++)
+            {
+                float octave = i + 1;
+                float scale = 1.0f / octave;
+                max += scale;
+                elevation += scale * Noise(octave * nx, octave * ny);
+            }
+
+            return (elevation / max) * MaxElevation;
+        }
+
+        static float Noise(float x, float y) =>
+            Norm(SimplexNoise.Generate(x, y), -1, 1);
+
+        static float Norm(float val, float min, float max) =>
+            (val - min) / (max - min);
     }
 
     class GardenGame : Game
@@ -95,39 +120,105 @@ namespace Garden
                     gardenVertices = null;
                 }
             }
+
+            MoveCamera();
+        }
+
+
+        const float scale = 1.0f;
+        float pitch = 0.0f;
+        float yaw = 0.0f;
+        float zoom = 1.0f;
+        Vector3 lookAt = new Vector3(
+            scale * Garden.Width / 2f,
+            scale * Garden.MaxElevation / 2f,
+            scale * Garden.Height / 2f);
+
+        void MoveCamera()
+        {
+            GamePadState state = GamePad.GetState(0);
+            if (state.ThumbSticks.Right.X != 0)
+            {
+                // Turn left/right
+                yaw += 0.05f * -state.ThumbSticks.Right.X;
+            }
+
+            if (state.ThumbSticks.Right.Y != 0)
+            {
+                // Turn up/down
+                float pitch = this.pitch;
+                pitch += 0.05f * -state.ThumbSticks.Right.Y;
+                if (pitch > (float)Math.PI / 2.0f) { pitch = (float)Math.PI / 2.0f; }
+                if (pitch < 0.0f) { pitch = 0.0f; }
+                this.pitch = pitch;
+            }
+
+            if (state.Triggers.Right >= 0.5)
+            {
+                this.zoom = 0.5f;
+            }
+
+            if (state.Triggers.Left >= 0.5)
+            {
+                this.zoom = 1.0f;
+            }
+        }
+
+        Matrix RecomputeProjection() =>
+            Matrix.CreatePerspectiveFieldOfView(
+                fieldOfView: zoom * (float)Math.PI / 4.0f,
+                aspectRatio: GraphicsDevice.Viewport.AspectRatio,
+                nearPlaneDistance: 0.1f,
+                farPlaneDistance: 10000f);
+
+        Matrix RecomputeView()
+        {
+            // First, turn the angle we're turned...
+            Vector3 forward = Vector3.Transform(
+                Vector3.UnitX,
+                Matrix.CreateFromAxisAngle(Vector3.UnitY, this.yaw));
+
+            // Now figure out the axis we're pitched around....
+            Vector3 right = Vector3.Cross(forward, Vector3.UnitY);
+
+            // And pitch around it...
+            forward = Vector3.Transform(
+                forward, Matrix.CreateFromAxisAngle(right, -this.pitch));
+
+            // And now figure out which way is up!
+            Vector3 up = Vector3.Cross(right, forward);
+
+            // The camera sits a little away from the look-at point...
+            Vector3 cameraPosition = lookAt - (forward * 500.0f);
+
+            return Matrix.CreateLookAt(cameraPosition, lookAt, up);
         }
 
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
-            squareEffect.Alpha = 0.50f;
-            squareEffect.View = Matrix.CreateLookAt(
-                new Vector3(Garden.Width / 2, Garden.Height / 2, 10),
-                new Vector3(Garden.Width / 2, Garden.Height / 2, 0),
-                new Vector3(0, 1, 0));// * Matrix.CreateScale(50);
-            squareEffect.Projection = Matrix.CreateOrthographic(
-                (float)GraphicsDevice.Viewport.Width,
-                (float)GraphicsDevice.Viewport.Height,
-                0f,
-                1000.0f);
+            squareEffect.View = RecomputeView();
+            squareEffect.Projection = RecomputeProjection();
+            squareEffect.World = Matrix.CreateScale(scale);
+
+            squareEffect.DiffuseColor = Color.White.ToVector3();
             squareEffect.LightingEnabled = false;
             squareEffect.VertexColorEnabled = true;
 
             if (gardenIndices == null)
             {
-                gardenIndices = new IndexBuffer(
-                    GraphicsDevice,
-                    typeof(short),
-                    Garden.Width * 2,
-                    BufferUsage.WriteOnly);
-
                 short[] indices = new short[Garden.Width * 2];
                 for (short x = 0; x < Garden.Width; x++)
                 {
-                    indices[(x * 2) + 0] = x;
-                    indices[(x * 2) + 1] = (short)(x + Garden.Width);
+                    indices[(x * 2) + 1] = x;
+                    indices[(x * 2) + 0] = (short)(x + Garden.Width);
                 }
+                gardenIndices = new IndexBuffer(
+                    GraphicsDevice,
+                    typeof(short),
+                    indices.Length,
+                    BufferUsage.WriteOnly);
                 gardenIndices.SetData(indices);
             }
 
@@ -146,9 +237,9 @@ namespace Garden
             // terrain. We can re-use these indices for each row of terrain by
             // shifting the vertex offset along...
             GraphicsDevice.Indices = gardenIndices;
+            GraphicsDevice.SetVertexBuffer(gardenVertices);
             for (int y = 0; y < Garden.Height - 1; y++)
             {
-                GraphicsDevice.SetVertexBuffer(gardenVertices);
                 foreach (EffectPass pass in squareEffect.CurrentTechnique.Passes)
                 {
                     pass.Apply();
@@ -156,7 +247,7 @@ namespace Garden
                         primitiveType: PrimitiveType.TriangleStrip,
                         baseVertex: y * Garden.Width,
                         startIndex: 0,
-                        primitiveCount: Garden.Width * 2);
+                        primitiveCount: (Garden.Width - 1) * 2);
                 }
             }
 
@@ -167,7 +258,10 @@ namespace Garden
             spriteBatch.Begin();
             spriteBatch.DrawString(
                 font,
-                String.Format("{0} fps", fps),
+                String.Format(
+                    "{0} fps {1}",
+                    fps,
+                    this.zoom),
                 new Vector2(10, 10),
                 Color.White);
             spriteBatch.End();
