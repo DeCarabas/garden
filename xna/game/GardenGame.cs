@@ -80,9 +80,9 @@ namespace Garden
         float yaw = 0.0f;
         float zoom = 1.0f;
         Vector3 lookAt = new Vector3(
-            scale * GardenChunk.Width / 2f,
-            scale * GardenChunk.MaxElevation / 2f,
-            scale * GardenChunk.Height / 2f);
+            scale * Garden.MaxWorldX / 2f,
+            scale * Garden.MaxElevation / 2f,
+            scale * Garden.MaxWorldZ / 2f);
 
 
         void MoveCamera()

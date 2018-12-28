@@ -12,6 +12,9 @@ namespace Garden
         public GardenChunk[] Chunks => chunks;
         public const int Width = 8;
         public const int Height = 8;
+        public const int MaxWorldX = Width * (GardenChunk.Width - 1);
+        public const int MaxWorldZ = Height * (GardenChunk.Height - 1);
+        public const float MaxElevation = GardenChunk.MaxElevation;
 
 
         public static Garden Generate()
