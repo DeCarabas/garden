@@ -154,7 +154,7 @@ namespace Garden
             Vector3 up = Vector3.Cross(right, forward);
 
             // The camera sits a little away from the look-at point...
-            Vector3 cameraPosition = lookAt - (forward * 150.0f);
+            Vector3 cameraPosition = lookAt - (forward * 500.0f);
 
             cameraDebug =
                 $"f:{forward.Length():0.00} u:{up.Length():0.00} " +

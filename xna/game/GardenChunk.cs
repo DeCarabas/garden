@@ -45,19 +45,16 @@ namespace Garden
 
         static float GenerateElevation(float nx, float ny)
         {
-            float elevation = 0;
+            float elevation =
+                1f * Noise(nx / 4f, ny / 4f) +
+                0.5f * Noise(nx, ny) +
+                0.25f * Noise(2 * nx, 2 * ny) +
+                0.125f * Noise(4 * nx, 4 * ny);
 
-            int octaves = 3;
-            float max = 0.0f;
-            for (int i = 0; i < octaves; i++)
-            {
-                float octave = i + 1;
-                float scale = 1.0f / octave;
-                max += scale;
-                elevation += scale * Noise(octave * nx, octave * ny);
-            }
-
-            return (elevation / max) * MaxElevation;
+            const float maxnoise = (1f + 0.5f + 0.25f + 0.125f);
+            elevation = (elevation / maxnoise);
+            elevation = (float)Math.Pow(elevation, 4);
+            return elevation * MaxElevation;
         }
 
         static float Noise(float x, float y) =>
