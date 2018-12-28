@@ -9,19 +9,22 @@ namespace Garden
         public const int Width = 256;
         public const int Height = 256;
 
-        float[] elevations;
+        VertexPositionColor[] vertices;
 
-        public Garden(ref float[] elevations)
+        public Garden(ref VertexPositionColor[] vertices)
         {
-            this.elevations = elevations;
-            elevations = null;
+            this.vertices = vertices;
+            vertices = null;
         }
 
-        public float Elevation(int x, int y) => elevations[y * Width + x];
+        public VertexPositionColor[] Vertices => this.vertices;
+
+        public float Elevation(int x, int y) =>
+            this.vertices[y * Width + x].Position.Z;
 
         public static Garden Generate()
         {
-            float[] elevations = new float[Width * Height];
+            var vertices = new VertexPositionColor[Width * Height];
             int i = 0;
             for (int y = 0; y < Height; y++)
             {
@@ -30,11 +33,17 @@ namespace Garden
                     float nx = ((float)x / (float)Width) - 0.5f;
                     float ny = ((float)y / (float)Height) - 0.5f;
 
-                    elevations[i] = SimplexNoise.Generate(7 * nx, 7 * ny);
+                    float z = SimplexNoise.Generate(7 * nx, 7 * ny);
+
+                    Color color = Color.White * z;
+                    color.A = 255;
+                    vertices[i] = new VertexPositionColor(
+                        new Vector3(x, y, z),
+                        color);
                     i += 1;
                 }
             }
-            return new Garden(ref elevations);
+            return new Garden(ref vertices);
         }
     }
 
@@ -46,9 +55,11 @@ namespace Garden
 
         // For drawing squares.
         BasicEffect squareEffect;
-        VertexPosition[] squareVertices;
 
         Garden garden;
+
+        VertexBuffer gardenVertices;
+        IndexBuffer gardenIndices;
 
         public GardenGame()
         {
@@ -61,15 +72,6 @@ namespace Garden
             font = Content.Load<SpriteFont>("fonts/basic");
 
             squareEffect = new BasicEffect(GraphicsDevice);
-
-            const float halfWidth = 0.5f;
-
-            squareVertices = new VertexPosition[5];
-            squareVertices[0] = new VertexPosition(new Vector3(-halfWidth, -halfWidth, 0));
-            squareVertices[1] = new VertexPosition(new Vector3(+halfWidth, -halfWidth, 0));
-            squareVertices[2] = new VertexPosition(new Vector3(+halfWidth, +halfWidth, 0));
-            squareVertices[3] = new VertexPosition(new Vector3(-halfWidth, -halfWidth, 0));
-            squareVertices[4] = new VertexPosition(new Vector3(-halfWidth, +halfWidth, 0));
         }
 
         protected override void UnloadContent()
@@ -82,6 +84,16 @@ namespace Garden
             if (garden == null)
             {
                 garden = Garden.Generate();
+                if (gardenIndices != null)
+                {
+                    gardenIndices.Dispose();
+                    gardenIndices = null;
+                }
+                if (gardenVertices != null)
+                {
+                    gardenVertices.Dispose();
+                    gardenVertices = null;
+                }
             }
         }
 
@@ -93,32 +105,58 @@ namespace Garden
             squareEffect.View = Matrix.CreateLookAt(
                 new Vector3(Garden.Width / 2, Garden.Height / 2, 10),
                 new Vector3(Garden.Width / 2, Garden.Height / 2, 0),
-                new Vector3(0, 1, 0)) * Matrix.CreateScale(10);
+                new Vector3(0, 1, 0));// * Matrix.CreateScale(50);
             squareEffect.Projection = Matrix.CreateOrthographic(
                 (float)GraphicsDevice.Viewport.Width,
                 (float)GraphicsDevice.Viewport.Height,
                 0f,
                 1000.0f);
             squareEffect.LightingEnabled = false;
+            squareEffect.VertexColorEnabled = true;
 
-            for (int y = 0; y < Garden.Width; y++)
+            if (gardenIndices == null)
             {
-                for (int x = 0; x < Garden.Height; x++)
-                {
-                    float elevation = garden.Elevation(x, y);
-                    squareEffect.DiffuseColor = Color.White.ToVector3() * elevation;
-                    squareEffect.World = Matrix.CreateTranslation(x, y, 0);
+                gardenIndices = new IndexBuffer(
+                    GraphicsDevice,
+                    typeof(short),
+                    Garden.Width * 2,
+                    BufferUsage.WriteOnly);
 
-                    foreach (EffectPass pass in squareEffect.CurrentTechnique.Passes)
-                    {
-                        pass.Apply();
-                        GraphicsDevice.DrawUserPrimitives(
-                            primitiveType: PrimitiveType.TriangleStrip,
-                            vertexData: squareVertices,
-                            vertexOffset: 0,
-                            primitiveCount: 3,
-                            vertexDeclaration: VertexPosition.VertexDeclaration);
-                    }
+                short[] indices = new short[Garden.Width * 2];
+                for (short x = 0; x < Garden.Width; x++)
+                {
+                    indices[(x * 2) + 0] = x;
+                    indices[(x * 2) + 1] = (short)(x + Garden.Width);
+                }
+                gardenIndices.SetData(indices);
+            }
+
+            if (gardenVertices == null)
+            {
+                VertexPositionColor[] vertices = garden.Vertices;
+                gardenVertices = new VertexBuffer(
+                    GraphicsDevice,
+                    typeof(VertexPositionColor),
+                    vertices.Length,
+                    BufferUsage.WriteOnly);
+                gardenVertices.SetData(vertices);
+            }
+
+            // Indices describes a strip of triangles that makes up one row of
+            // terrain. We can re-use these indices for each row of terrain by
+            // shifting the vertex offset along...
+            GraphicsDevice.Indices = gardenIndices;
+            for (int y = 0; y < Garden.Height - 1; y++)
+            {
+                GraphicsDevice.SetVertexBuffer(gardenVertices);
+                foreach (EffectPass pass in squareEffect.CurrentTechnique.Passes)
+                {
+                    pass.Apply();
+                    GraphicsDevice.DrawIndexedPrimitives(
+                        primitiveType: PrimitiveType.TriangleStrip,
+                        baseVertex: y * Garden.Width,
+                        startIndex: 0,
+                        primitiveCount: Garden.Width * 2);
                 }
             }
 
