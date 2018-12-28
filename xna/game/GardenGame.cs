@@ -7,8 +7,8 @@ namespace Garden
 {
     class Garden
     {
-        public const int Width = 256;
-        public const int Height = 256;
+        public const int Width = 128;
+        public const int Height = 128;
         public const float MaxElevation = 100f;
 
         VertexPositionColor[] vertices;
@@ -22,7 +22,9 @@ namespace Garden
         public VertexPositionColor[] Vertices => this.vertices;
 
         public float Elevation(int x, int y) =>
-            this.vertices[y * Width + x].Position.Z;
+            this.vertices[y * Width + x].Position.Y;
+
+        public static int Index(int x, int y) => (y * Width) + x;
 
         public static Garden Generate()
         {
@@ -208,11 +210,24 @@ namespace Garden
 
             if (gardenIndices == null)
             {
-                short[] indices = new short[Garden.Width * 2];
-                for (short x = 0; x < Garden.Width; x++)
+                int cursor = 0;
+
+                int indexCount = (Garden.Width - 1) * (Garden.Height - 1) * 6;
+                short[] indices = new short[indexCount];
+                for (int y = 0; y < Garden.Height - 1; y++)
                 {
-                    indices[(x * 2) + 1] = x;
-                    indices[(x * 2) + 0] = (short)(x + Garden.Width);
+                    for (int x = 0; x < Garden.Width - 1; x++)
+                    {
+                        indices[cursor + 0] = (short)Garden.Index(x + 0, y + 1);
+                        indices[cursor + 1] = (short)Garden.Index(x + 0, y + 0);
+                        indices[cursor + 2] = (short)Garden.Index(x + 1, y + 1);
+
+                        indices[cursor + 3] = (short)Garden.Index(x + 1, y + 1);
+                        indices[cursor + 4] = (short)Garden.Index(x + 0, y + 0);
+                        indices[cursor + 5] = (short)Garden.Index(x + 1, y + 0);
+
+                        cursor += 6;
+                    }
                 }
                 gardenIndices = new IndexBuffer(
                     GraphicsDevice,
@@ -238,17 +253,15 @@ namespace Garden
             // shifting the vertex offset along...
             GraphicsDevice.Indices = gardenIndices;
             GraphicsDevice.SetVertexBuffer(gardenVertices);
-            for (int y = 0; y < Garden.Height - 1; y++)
+
+            foreach (EffectPass pass in squareEffect.CurrentTechnique.Passes)
             {
-                foreach (EffectPass pass in squareEffect.CurrentTechnique.Passes)
-                {
-                    pass.Apply();
-                    GraphicsDevice.DrawIndexedPrimitives(
-                        primitiveType: PrimitiveType.TriangleStrip,
-                        baseVertex: y * Garden.Width,
-                        startIndex: 0,
-                        primitiveCount: (Garden.Width - 1) * 2);
-                }
+                pass.Apply();
+                GraphicsDevice.DrawIndexedPrimitives(
+                    primitiveType: PrimitiveType.TriangleList,
+                    baseVertex: 0,
+                    startIndex: 0,
+                    primitiveCount: gardenIndices.IndexCount / 3);
             }
 
 
