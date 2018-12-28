@@ -70,7 +70,7 @@ namespace Garden
                 }
             }
 
-            MoveCamera();
+            HandleInput();
             UpdateDebugGarbage();
         }
 
@@ -85,42 +85,84 @@ namespace Garden
             scale * Garden.MaxWorldZ / 2f);
 
 
-        void MoveCamera()
+        void HandleInput()
         {
-            GamePadState state = GamePad.GetState(0);
-            if (state.ThumbSticks.Right.X != 0)
+            GamePadState controller = GamePad.GetState(0);
+            KeyboardState keyboard = Keyboard.GetState();
+
+            float yawDelta = 0f;
+            if (controller.ThumbSticks.Right.X != 0)
             {
                 // Turn left/right
-                yaw += 0.05f * -state.ThumbSticks.Right.X;
+                yawDelta = 0.05f * -controller.ThumbSticks.Right.X;
             }
+            else if (keyboard.IsKeyDown(Keys.Right))
+            {
+                yawDelta = -0.05f;
+            }
+            else if (keyboard.IsKeyDown(Keys.Left))
+            {
+                yawDelta = 0.05f;
+            }
+            yaw += yawDelta;
 
-            if (state.ThumbSticks.Right.Y != 0)
+
+            float pitchDelta = 0f;
+            if (controller.ThumbSticks.Right.Y != 0)
             {
                 // Turn up/down
+                pitchDelta = 0.05f * -controller.ThumbSticks.Right.Y;
+            }
+            else if (keyboard.IsKeyDown(Keys.Up))
+            {
+                pitchDelta = 0.05f;
+            }
+            else if (keyboard.IsKeyDown(Keys.Down))
+            {
+                pitchDelta = -0.05f;
+            }
+            if (pitchDelta != 0)
+            {
                 float pitch = this.pitch;
-                pitch += 0.05f * -state.ThumbSticks.Right.Y;
+                pitch += pitchDelta;
                 if (pitch > (float)Math.PI / 2.0f) { pitch = (float)Math.PI / 2.0f; }
                 if (pitch < 0.0f) { pitch = 0.0f; }
                 this.pitch = pitch;
             }
 
-            if (state.ThumbSticks.Left != Vector2.Zero)
+            Vector2 movement = controller.ThumbSticks.Left;
+            if (keyboard.IsKeyDown(Keys.A))
+            {
+                movement.X = -2.0f;
+            }
+            if (keyboard.IsKeyDown(Keys.D))
+            {
+                movement.X = 2.0f;
+            }
+            if (keyboard.IsKeyDown(Keys.W))
+            {
+                movement.Y = 2.0f;
+            }
+            if (keyboard.IsKeyDown(Keys.S))
+            {
+                movement.Y = -2.0f;
+            }
+            if (movement != Vector2.Zero)
             {
                 Vector3 forward = Vector3.Transform(
                     Vector3.UnitX,
                     Matrix.CreateFromAxisAngle(Vector3.UnitY, this.yaw));
                 Vector3 right = Vector3.Cross(forward, Vector3.UnitY);
 
-                lookAt += forward * state.ThumbSticks.Left.Y;
-                lookAt += right * state.ThumbSticks.Left.X;
+                lookAt += forward * movement.Y;
+                lookAt += right * movement.X;
             }
 
-            if (state.Triggers.Right >= 0.5)
+            if (controller.Triggers.Right >= 0.5)
             {
                 this.zoom = 0.25f;
             }
-
-            if (state.Triggers.Left >= 0.5)
+            if (controller.Triggers.Left >= 0.5)
             {
                 this.zoom = 1.0f;
             }
