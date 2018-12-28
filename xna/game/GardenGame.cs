@@ -4,8 +4,6 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Garden
 {
-
-
     class Garden
     {
         public const int Width = 256;
@@ -95,7 +93,7 @@ namespace Garden
             squareEffect.View = Matrix.CreateLookAt(
                 new Vector3(Garden.Width / 2, Garden.Height / 2, 10),
                 new Vector3(Garden.Width / 2, Garden.Height / 2, 0),
-                new Vector3(0, 1, 0));
+                new Vector3(0, 1, 0)) * Matrix.CreateScale(10);
             squareEffect.Projection = Matrix.CreateOrthographic(
                 (float)GraphicsDevice.Viewport.Width,
                 (float)GraphicsDevice.Viewport.Height,
@@ -125,9 +123,15 @@ namespace Garden
             }
 
 
+            var fps = 1.0 / gameTime.ElapsedGameTime.TotalSeconds;
+
             var spriteBatch = new SpriteBatch(GraphicsDevice);
             spriteBatch.Begin();
-            spriteBatch.DrawString(font, "Score", new Vector2(100, 100), Color.White);
+            spriteBatch.DrawString(
+                font,
+                String.Format("{0} fps", fps),
+                new Vector2(10, 10),
+                Color.White);
             spriteBatch.End();
         }
     }
