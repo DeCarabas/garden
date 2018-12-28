@@ -1,0 +1,1 @@
+"%ProgramFiles(x86)%\MSBuild\MonoGame\v3.0\Tools\MGCB.exe" garden.mgcb
