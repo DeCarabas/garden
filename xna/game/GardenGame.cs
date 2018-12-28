@@ -5,68 +5,6 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Garden
 {
-    class Garden
-    {
-        public const int Width = 128;
-        public const int Height = 128;
-        public const float MaxElevation = 100f;
-
-        VertexPositionColor[] vertices;
-
-        public Garden(ref VertexPositionColor[] vertices)
-        {
-            this.vertices = vertices;
-            vertices = null;
-        }
-
-        public VertexPositionColor[] Vertices => this.vertices;
-
-        public float Elevation(int x, int y) =>
-            this.vertices[y * Width + x].Position.Y;
-
-        public static int Index(int x, int y) => (y * Width) + x;
-
-        public static Garden Generate()
-        {
-            var vertices = new VertexPositionColor[Width * Height];
-            for (int y = 0; y < Height; y++)
-            {
-                for (int x = 0; x < Width; x++)
-                {
-                    float nx = (float)x / (float)Width;
-                    float ny = (float)y / (float)Height;
-                    float elevation = GenerateElevation(nx, ny);
-
-                    float scale = elevation / MaxElevation;
-                    vertices[Index(x, y)] = new VertexPositionColor(
-                        new Vector3(x, elevation, y),
-                        Color.Lerp(Color.DarkGreen, Color.White, scale));
-                }
-            }
-            return new Garden(ref vertices);
-        }
-
-        static float GenerateElevation(float nx, float ny)
-        {
-            float elevation = 0;
-
-            int octaves = 8;
-            float max = 0.0f;
-            for (int i = 0; i < octaves; i++)
-            {
-                float octave = i + 1;
-                float scale = 1.0f / octave;
-                max += scale;
-                elevation += scale * Noise(octave * nx, octave * ny);
-            }
-
-            return (elevation / max) * MaxElevation;
-        }
-
-        static float Noise(float x, float y) =>
-            (SimplexNoise.Generate(x, y) + 1f) / 2f;
-    }
-
     class GardenGame : Game
     {
         GraphicsDeviceManager graphics;
@@ -78,8 +16,8 @@ namespace Garden
 
         Garden garden;
 
-        VertexBuffer gardenVertices;
-        IndexBuffer gardenIndices;
+        VertexBuffer[] gardenVertices;
+        IndexBuffer[] gardenIndices;
 
         public GardenGame()
         {
@@ -104,15 +42,31 @@ namespace Garden
             if (garden == null)
             {
                 garden = Garden.Generate();
-                if (gardenIndices != null)
+                if (gardenIndices == null)
                 {
-                    gardenIndices.Dispose();
-                    gardenIndices = null;
+                    gardenIndices = new IndexBuffer[Garden.Width * Garden.Height];
                 }
-                if (gardenVertices != null)
+                if (gardenVertices == null)
                 {
-                    gardenVertices.Dispose();
-                    gardenVertices = null;
+                    gardenVertices = new VertexBuffer[Garden.Width * Garden.Height];
+                }
+
+                for (int i = 0; i < gardenIndices.Length; i++)
+                {
+                    if (gardenIndices[i] != null)
+                    {
+                        gardenIndices[i].Dispose();
+                        gardenIndices[i] = null;
+                    }
+                }
+                for (int i = 0; i < gardenVertices.Length; i++)
+                {
+                    if (gardenVertices[i] != null)
+                    {
+                        gardenVertices[i].Dispose();
+                        gardenVertices[i] = null;
+
+                    }
                 }
             }
 
@@ -126,9 +80,9 @@ namespace Garden
         float yaw = 0.0f;
         float zoom = 1.0f;
         Vector3 lookAt = new Vector3(
-            scale * Garden.Width / 2f,
-            scale * Garden.MaxElevation / 2f,
-            scale * Garden.Height / 2f);
+            scale * GardenChunk.Width / 2f,
+            scale * GardenChunk.MaxElevation / 2f,
+            scale * GardenChunk.Height / 2f);
 
 
         void MoveCamera()
@@ -150,6 +104,17 @@ namespace Garden
                 this.pitch = pitch;
             }
 
+            if (state.ThumbSticks.Left != Vector2.Zero)
+            {
+                Vector3 forward = Vector3.Transform(
+                    Vector3.UnitX,
+                    Matrix.CreateFromAxisAngle(Vector3.UnitY, this.yaw));
+                Vector3 right = Vector3.Cross(forward, Vector3.UnitY);
+
+                lookAt += forward * state.ThumbSticks.Left.Y;
+                lookAt += right * state.ThumbSticks.Left.X;
+            }
+
             if (state.Triggers.Right >= 0.5)
             {
                 this.zoom = 0.25f;
@@ -162,11 +127,6 @@ namespace Garden
         }
 
         Matrix RecomputeProjection() =>
-        // Matrix.CreateOrthographic(
-        //     width: zoom * GraphicsDevice.Viewport.Width,
-        //     height: zoom * GraphicsDevice.Viewport.Height,
-        //     zNearPlane: 1f,
-        //     zFarPlane: 1000f);
             Matrix.CreatePerspectiveFieldOfView(
                 fieldOfView: zoom * (float)Math.PI / 4.0f,
                 aspectRatio: GraphicsDevice.Viewport.AspectRatio,
@@ -194,7 +154,7 @@ namespace Garden
             Vector3 up = Vector3.Cross(right, forward);
 
             // The camera sits a little away from the look-at point...
-            Vector3 cameraPosition = lookAt - (forward * 250.0f);
+            Vector3 cameraPosition = lookAt - (forward * 150.0f);
 
             cameraDebug =
                 $"f:{forward.Length():0.00} u:{up.Length():0.00} " +
@@ -202,11 +162,36 @@ namespace Garden
             return Matrix.CreateLookAt(cameraPosition, lookAt, up);
         }
 
-        static string fv(Vector3 v) => $"[{v.X:0.000} {v.Y:0.000} {v.Z:0.000}]";
+        static IndexBuffer BuildChunkIndexBuffer(GraphicsDevice device, GardenChunk chunk)
+        {
+            int cursor = 0;
 
-        static string fv(Vector4 v) =>
-            $"[{v.X:0.000} {v.Y:0.000} {v.Z:0.000} {v.W:0.000}]";
+            int indexCount =
+                (GardenChunk.Width - 1) * (GardenChunk.Height - 1) * 6;
+            short[] indices = new short[indexCount];
+            for (int y = 0; y < GardenChunk.Height - 1; y++)
+            {
+                for (int x = 0; x < GardenChunk.Width - 1; x++)
+                {
+                    indices[cursor + 0] = (short)GardenChunk.Index(x + 0, y + 1);
+                    indices[cursor + 1] = (short)GardenChunk.Index(x + 0, y + 0);
+                    indices[cursor + 2] = (short)GardenChunk.Index(x + 1, y + 1);
 
+                    indices[cursor + 3] = (short)GardenChunk.Index(x + 1, y + 1);
+                    indices[cursor + 4] = (short)GardenChunk.Index(x + 0, y + 0);
+                    indices[cursor + 5] = (short)GardenChunk.Index(x + 1, y + 0);
+
+                    cursor += 6;
+                }
+            }
+            var gardenIndices = new IndexBuffer(
+                device,
+                typeof(short),
+                indices.Length,
+                BufferUsage.WriteOnly);
+            gardenIndices.SetData(indices);
+            return gardenIndices;
+        }
 
         protected override void Draw(GameTime gameTime)
         {
@@ -217,51 +202,49 @@ namespace Garden
 
             squareEffect.View = RecomputeView();
             squareEffect.Projection = RecomputeProjection();
-            squareEffect.World = Matrix.CreateScale(scale);
             squareEffect.VertexColorEnabled = true;
 
-            if (gardenIndices == null)
+            for (int wy = 0; wy < Garden.Height; wy++)
             {
-                int cursor = 0;
-
-                int indexCount = (Garden.Width - 1) * (Garden.Height - 1) * 6;
-                short[] indices = new short[indexCount];
-                for (int y = 0; y < Garden.Height - 1; y++)
+                for (int wx = 0; wx < Garden.Width; wx++)
                 {
-                    for (int x = 0; x < Garden.Width - 1; x++)
-                    {
-                        indices[cursor + 0] = (short)Garden.Index(x + 0, y + 1);
-                        indices[cursor + 1] = (short)Garden.Index(x + 0, y + 0);
-                        indices[cursor + 2] = (short)Garden.Index(x + 1, y + 1);
-
-                        indices[cursor + 3] = (short)Garden.Index(x + 1, y + 1);
-                        indices[cursor + 4] = (short)Garden.Index(x + 0, y + 0);
-                        indices[cursor + 5] = (short)Garden.Index(x + 1, y + 0);
-
-                        cursor += 6;
-                    }
+                    DrawChunk(wx, wy);
                 }
-                gardenIndices = new IndexBuffer(
-                    GraphicsDevice,
-                    typeof(short),
-                    indices.Length,
-                    BufferUsage.WriteOnly);
-                gardenIndices.SetData(indices);
             }
 
-            if (gardenVertices == null)
+            DrawDebugGarbage(gameTime);
+        }
+
+        void DrawChunk(int wx, int wy)
+        {
+            int ci = Garden.Index(wx, wy);
+
+            IndexBuffer indexBuffer = gardenIndices[ci];
+            if (indexBuffer == null)
             {
-                VertexPositionColor[] vertices = garden.Vertices;
-                gardenVertices = new VertexBuffer(
+                indexBuffer = gardenIndices[ci] = BuildChunkIndexBuffer(
+                    GraphicsDevice, garden.Chunks[ci]);
+            }
+            GraphicsDevice.Indices = indexBuffer;
+
+            VertexBuffer vertexBuffer = gardenVertices[ci];
+            if (vertexBuffer == null)
+            {
+                GardenChunk chunk = garden.Chunks[ci];
+                VertexPositionColor[] vertices = chunk.Vertices;
+                vertexBuffer = gardenVertices[ci] = new VertexBuffer(
                     GraphicsDevice,
                     typeof(VertexPositionColor),
                     vertices.Length,
                     BufferUsage.WriteOnly);
-                gardenVertices.SetData(vertices);
+                gardenVertices[ci].SetData(vertices);
             }
+            GraphicsDevice.SetVertexBuffer(vertexBuffer);
 
-            GraphicsDevice.Indices = gardenIndices;
-            GraphicsDevice.SetVertexBuffer(gardenVertices);
+            squareEffect.World = Matrix.CreateTranslation(
+                wx * (GardenChunk.Width - 1),
+                0,
+                wy * (GardenChunk.Height - 1));
             foreach (EffectPass pass in squareEffect.CurrentTechnique.Passes)
             {
                 pass.Apply();
@@ -269,10 +252,8 @@ namespace Garden
                     primitiveType: PrimitiveType.TriangleList,
                     baseVertex: 0,
                     startIndex: 0,
-                    primitiveCount: gardenIndices.IndexCount / 3);
+                    primitiveCount: indexBuffer.IndexCount / 3);
             }
-
-            DrawDebugGarbage(gameTime);
         }
 
         int dbgi_x = 0;
@@ -285,16 +266,16 @@ namespace Garden
             if (state.IsButtonDown(Buttons.DPadUp)) { dbgi_y--; }
             if (state.IsButtonDown(Buttons.DPadLeft)) { dbgi_x++; }
             if (state.IsButtonDown(Buttons.DPadRight)) { dbgi_x--; }
-            dbgi_x = MathHelper.Clamp(dbgi_x, 0, Garden.Width - 1);
-            dbgi_y = MathHelper.Clamp(dbgi_y, 0, Garden.Height - 1);
+            dbgi_x = MathHelper.Clamp(dbgi_x, 0, GardenChunk.Width - 1);
+            dbgi_y = MathHelper.Clamp(dbgi_y, 0, GardenChunk.Height - 1);
         }
 
         void DrawDebugGarbage(GameTime gameTime)
         {
             var fps = 1.0 / gameTime.ElapsedGameTime.TotalSeconds;
 
-            var dbgi = Garden.Index(dbgi_x, dbgi_y);
-            var dbg = garden.Vertices[dbgi];
+            var dbgi = GardenChunk.Index(dbgi_x, dbgi_y);
+            var dbg = garden.Chunks[0].Vertices[dbgi];
 
             var cat = (squareEffect.World * squareEffect.View * squareEffect.Projection);
             var p2 = Vector4.Transform(new Vector4(dbg.Position, 1), cat);
@@ -308,7 +289,8 @@ namespace Garden
             spriteBatch.Begin();
             spriteBatch.DrawString(
                 font,
-                $"{fps:0.00} {zoom:0.00} {yaw:0.00} {fv(dbg.Position)} {fv(p2)} {fv(pp)}",
+                $"{fps:0.00} {zoom:0.00} {yaw:0.00} {dv(dbg.Position)} " +
+                $"{dv(p2)} {dv(pp)}",
                 new Vector2(10, 10),
                 Color.White);
 
@@ -316,6 +298,11 @@ namespace Garden
             spriteBatch.DrawString(font, "X", xp, Color.White);
             spriteBatch.End();
         }
+
+        static string dv(Vector3 v) => $"[{v.X:0.000} {v.Y:0.000} {v.Z:0.000}]";
+
+        static string dv(Vector4 v) =>
+            $"[{v.X:0.000} {v.Y:0.000} {v.Z:0.000} {v.W:0.000}]";
     }
 
 }
