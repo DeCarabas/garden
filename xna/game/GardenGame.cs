@@ -37,14 +37,10 @@ namespace Garden
                     float ny = (float)y / (float)Height;
                     float elevation = GenerateElevation(nx, ny);
 
-
                     float scale = elevation / MaxElevation;
-                    Color color = Color.Lerp(Color.Black, Color.White, scale);
-
-                    int idx = (y * Width) + x;
-                    vertices[idx] = new VertexPositionColor(
+                    vertices[Index(x, y)] = new VertexPositionColor(
                         new Vector3(x, elevation, y),
-                        color);
+                        Color.Lerp(Color.DarkGreen, Color.White, scale));
                 }
             }
             return new Garden(ref vertices);
@@ -68,10 +64,7 @@ namespace Garden
         }
 
         static float Noise(float x, float y) =>
-            Norm(SimplexNoise.Generate(x, y), -1, 1);
-
-        static float Norm(float val, float min, float max) =>
-            (val - min) / (max - min);
+            (SimplexNoise.Generate(x, y) + 1f) / 2f;
     }
 
     class GardenGame : Game
@@ -124,6 +117,7 @@ namespace Garden
             }
 
             MoveCamera();
+            UpdateDebugGarbage();
         }
 
 
@@ -135,6 +129,7 @@ namespace Garden
             scale * Garden.Width / 2f,
             scale * Garden.MaxElevation / 2f,
             scale * Garden.Height / 2f);
+
 
         void MoveCamera()
         {
@@ -157,7 +152,7 @@ namespace Garden
 
             if (state.Triggers.Right >= 0.5)
             {
-                this.zoom = 0.5f;
+                this.zoom = 0.25f;
             }
 
             if (state.Triggers.Left >= 0.5)
@@ -167,11 +162,19 @@ namespace Garden
         }
 
         Matrix RecomputeProjection() =>
+        // Matrix.CreateOrthographic(
+        //     width: zoom * GraphicsDevice.Viewport.Width,
+        //     height: zoom * GraphicsDevice.Viewport.Height,
+        //     zNearPlane: 1f,
+        //     zFarPlane: 1000f);
             Matrix.CreatePerspectiveFieldOfView(
                 fieldOfView: zoom * (float)Math.PI / 4.0f,
                 aspectRatio: GraphicsDevice.Viewport.AspectRatio,
                 nearPlaneDistance: 0.1f,
-                farPlaneDistance: 10000f);
+                farPlaneDistance: 1000f);
+
+
+        string cameraDebug = "";
 
         Matrix RecomputeView()
         {
@@ -191,21 +194,30 @@ namespace Garden
             Vector3 up = Vector3.Cross(right, forward);
 
             // The camera sits a little away from the look-at point...
-            Vector3 cameraPosition = lookAt - (forward * 500.0f);
+            Vector3 cameraPosition = lookAt - (forward * 250.0f);
 
+            cameraDebug =
+                $"f:{forward.Length():0.00} u:{up.Length():0.00} " +
+                $"r:{right.Length():0.00}";
             return Matrix.CreateLookAt(cameraPosition, lookAt, up);
         }
+
+        static string fv(Vector3 v) => $"[{v.X:0.000} {v.Y:0.000} {v.Z:0.000}]";
+
+        static string fv(Vector4 v) =>
+            $"[{v.X:0.000} {v.Y:0.000} {v.Z:0.000} {v.W:0.000}]";
+
 
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
 
+            // SpriteBatch disables the depth buffer; turn it back on again.
+            GraphicsDevice.DepthStencilState = DepthStencilState.Default;
+
             squareEffect.View = RecomputeView();
             squareEffect.Projection = RecomputeProjection();
             squareEffect.World = Matrix.CreateScale(scale);
-
-            squareEffect.DiffuseColor = Color.White.ToVector3();
-            squareEffect.LightingEnabled = false;
             squareEffect.VertexColorEnabled = true;
 
             if (gardenIndices == null)
@@ -248,12 +260,8 @@ namespace Garden
                 gardenVertices.SetData(vertices);
             }
 
-            // Indices describes a strip of triangles that makes up one row of
-            // terrain. We can re-use these indices for each row of terrain by
-            // shifting the vertex offset along...
             GraphicsDevice.Indices = gardenIndices;
             GraphicsDevice.SetVertexBuffer(gardenVertices);
-
             foreach (EffectPass pass in squareEffect.CurrentTechnique.Passes)
             {
                 pass.Apply();
@@ -264,19 +272,48 @@ namespace Garden
                     primitiveCount: gardenIndices.IndexCount / 3);
             }
 
+            DrawDebugGarbage(gameTime);
+        }
 
+        int dbgi_x = 0;
+        int dbgi_y = 0;
+
+        void UpdateDebugGarbage()
+        {
+            GamePadState state = GamePad.GetState(0);
+            if (state.IsButtonDown(Buttons.DPadDown)) { dbgi_y++; }
+            if (state.IsButtonDown(Buttons.DPadUp)) { dbgi_y--; }
+            if (state.IsButtonDown(Buttons.DPadLeft)) { dbgi_x++; }
+            if (state.IsButtonDown(Buttons.DPadRight)) { dbgi_x--; }
+            dbgi_x = MathHelper.Clamp(dbgi_x, 0, Garden.Width - 1);
+            dbgi_y = MathHelper.Clamp(dbgi_y, 0, Garden.Height - 1);
+        }
+
+        void DrawDebugGarbage(GameTime gameTime)
+        {
             var fps = 1.0 / gameTime.ElapsedGameTime.TotalSeconds;
+
+            var dbgi = Garden.Index(dbgi_x, dbgi_y);
+            var dbg = garden.Vertices[dbgi];
+
+            var cat = (squareEffect.World * squareEffect.View * squareEffect.Projection);
+            var p2 = Vector4.Transform(new Vector4(dbg.Position, 1), cat);
+            var pp = GraphicsDevice.Viewport.Project(
+                dbg.Position,
+                squareEffect.Projection,
+                squareEffect.View,
+                squareEffect.World);
 
             var spriteBatch = new SpriteBatch(GraphicsDevice);
             spriteBatch.Begin();
             spriteBatch.DrawString(
                 font,
-                String.Format(
-                    "{0} fps {1}",
-                    fps,
-                    this.zoom),
+                $"{fps:0.00} {zoom:0.00} {yaw:0.00} {fv(dbg.Position)} {fv(p2)} {fv(pp)}",
                 new Vector2(10, 10),
                 Color.White);
+
+            Vector2 xp = new Vector2(pp.X - 6, pp.Y - 6);
+            spriteBatch.DrawString(font, "X", xp, Color.White);
             spriteBatch.End();
         }
     }
