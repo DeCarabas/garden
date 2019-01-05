@@ -59,6 +59,8 @@ typings/
 
 # C# stuff
 packages
+xna/kate/obj
+xna/kate/bin
 xna/game/obj
 xna/game/bin
 xna/content/bin
