@@ -8,10 +8,15 @@ namespace Garden
 {
     static class RandomExtensions
     {
-        public static float NextFloat(this Random random)
-        {
-            return (float)random.NextDouble();
-        }
+        public static float NextFloat(this Random random) =>
+            (float)random.NextDouble();
+    }
+
+    static class MathF
+    {
+        public static float Sin(float angle) => (float)Math.Sin(angle);
+        public static float Cos(float angle) => (float)Math.Cos(angle);
+        public static float Unit(float value) => MathHelper.Clamp(value, 0, 1);
     }
 
     class DrawingContext
@@ -83,7 +88,7 @@ namespace Garden
         public void DrawCircle(HSBColor idColor, Vector3 position, float radius)
         {
             // TODO: Batch/cache.
-            var rgba = idColor.toColor();
+            var rgba = idColor.ToColor();
             var temp = (VertexPositionColorTexture[])unitSquare.Clone();
             for (int i = 0; i < temp.Length; i++)
             {
@@ -107,7 +112,7 @@ namespace Garden
             HSBColor idColor, Vector3 position, float radiusW, float radiusH)
         {
             // TODO: Batch/cache.
-            var rgba = idColor.toColor();
+            var rgba = idColor.ToColor();
             var temp = (VertexPositionColorTexture[])unitSquare.Clone();
             for (int i = 0; i < temp.Length; i++)
             {
@@ -135,7 +140,7 @@ namespace Garden
             Vector3 pt2,
             Vector3 pt3)
         {
-            var rgba = idColor.toColor();
+            var rgba = idColor.ToColor();
             var temp = (VertexPositionColorTexture[])unitSquare.Clone();
             temp[0].Position = pt0;
             temp[0].Color = rgba;
@@ -216,7 +221,7 @@ namespace Garden
                 this.baseAngle =
                     parent.angle + spread * (childPct - .5f) + skew;
                 this.baseAngle +=
-                    this.dna[WIGGLE] * .1f * (float)Math.Sin(this.depth) *
+                    this.dna[WIGGLE] * .1f * MathF.Sin(this.depth) *
                     this.depth;
 
                 // Set the position relative to the parent
@@ -248,13 +253,10 @@ namespace Garden
         {
             float h = (3 + dna[HUE_START] + .1f * dna[HUE_DIFF] * depth);
             float s =
-                -dna[SATURATION] * depth * .08f + .7f + .3f * dna[SATURATION] *
-                    ((float)Math.Sin(depth));
+                (.7f + .3f * dna[SATURATION] * MathF.Sin(depth)) -
+                (dna[SATURATION] * depth * .08f);
             float b = .3f + .1f * depth;
-            return new HSBColor(
-                h % 1f,
-                MathHelper.Clamp(s, 0, 1),
-                MathHelper.Clamp(b, 0, 1));
+            return new HSBColor(h % 1f, MathF.Unit(s), MathF.Unit(b));
         }
 
         public void Iterate()
@@ -283,12 +285,12 @@ namespace Garden
 
         public void Update(GameTime gameTime)
         {
+            float elapsed = (float)gameTime.TotalGameTime.TotalSeconds;
             if (this.parent != null)
             {
                 float angleOffset = .1f * (1.2f + this.depth) *
-                    (float)Math.Sin(
-                        2 * gameTime.TotalGameTime.TotalSeconds + this.depth);
-                angleOffset += 0.2f * (float)Math.Sin(this.id);
+                    MathF.Sin(2 * elapsed + this.depth);
+                angleOffset += 0.2f * MathF.Sin(this.id);
 
                 this.angle = this.baseAngle + angleOffset;
                 this.position = polarOffset(
@@ -326,8 +328,8 @@ namespace Garden
                 for (var j = 0; j < (int)leafCount; j++)
                 {
                     HSBColor leafColor = this.idColor.Alter(
-                        shade: 0.3f * (float)Math.Sin(j + this.depth),
-                        fade: -0.3f + 0.2f * (float)Math.Sin(j + this.depth));
+                        shade: 0.3f * MathF.Sin(j + this.depth),
+                        fade: -0.3f + 0.2f * MathF.Sin(j + this.depth));
 
                     world =
                         Matrix.CreateTranslation(length / leafCount, 0, 0) *
@@ -335,7 +337,7 @@ namespace Garden
 
                     var r0 = 15 * this.radius * (.3f + this.dna[LEAF_ASPECT]);
                     var r1 = r0 * (.7f * this.dna[LEAF_SHAPE] + .12f);
-                    var theta = (float)Math.Sin(j * 3 + this.depth);
+                    var theta = MathF.Sin(j * 3 + this.depth);
                     var dTheta = 1 / (.8f + 2 * this.dna[LEAF_ASPECT]);
                     var theta0 = theta - dTheta;
                     var theta1 = theta + dTheta;
@@ -345,16 +347,16 @@ namespace Garden
                         world,
                         new Vector3(0, 0, 0),
                         new Vector3(
-                            r1 * (float)Math.Cos(theta0),
-                            r1 * (float)Math.Sin(theta),
+                            r1 * MathF.Cos(theta0),
+                            r1 * MathF.Sin(theta),
                             0),
                         new Vector3(
-                            r0 * (float)Math.Cos(theta),
-                            r0 * (float)Math.Sin(theta),
+                            r0 * MathF.Cos(theta),
+                            r0 * MathF.Sin(theta),
                             0),
                         new Vector3(
-                            r1 * (float)Math.Cos(theta1),
-                            r1 * (float)Math.Sin(theta1),
+                            r1 * MathF.Cos(theta1),
+                            r1 * MathF.Sin(theta1),
                             0));
                 }
 
@@ -380,7 +382,7 @@ namespace Garden
                     var flowerColor = new HSBColor(
                         (this.dna[FLOWER_HUE] * 1.2f + .9f) % 1f,
                         this.dna[FLOWER_SATURATION],
-                        MathHelper.Clamp(.9f + .3f * (float)Math.Sin(i * 3), 0, 1),
+                        MathF.Unit(.9f + .3f * MathF.Sin(i * 3)),
                         .7f);
 
                     world =
@@ -401,8 +403,8 @@ namespace Garden
         static Vector3 polarOffset(Vector3 vector, float r, float theta)
         {
             Vector3 result;
-            result.X = vector.X + r * (float)Math.Cos(theta + Math.PI);
-            result.Y = vector.Y + r * (float)Math.Sin(theta + Math.PI);
+            result.X = vector.X + r * MathF.Cos(theta + MathHelper.Pi);
+            result.Y = vector.Y + r * MathF.Sin(theta + MathHelper.Pi);
             result.Z = vector.Z;
             return result;
         }
@@ -476,7 +478,7 @@ namespace Garden
         protected override void Draw(GameTime gameTime)
         {
             var background = new HSBColor(0.55f, 0.1f, 1f, 1);
-            GraphicsDevice.Clear(background.toColor());
+            GraphicsDevice.Clear(background.ToColor());
             GraphicsDevice.RasterizerState = RasterizerState.CullNone;
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
 

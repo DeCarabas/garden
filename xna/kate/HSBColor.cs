@@ -22,11 +22,6 @@ namespace Garden
             A = a;
         }
 
-        public static HSBColor idColor(float id)
-        {
-            return new HSBColor((id * 0.31299f + 0.42f) % 1.0f, 1, 1);
-        }
-
         public HSBColor Alter(float? shade = null, float? fade = null)
         {
             var h = this.H;
@@ -66,23 +61,23 @@ namespace Garden
         }
 
 
-        public Vector4 toRGBA()
+        public Vector4 ToRGBA()
         {
-            return toRGBA(H, S, B, A);
+            return ToRGBA(H, S, B, A);
         }
 
-        public Color toColor()
+        public Color ToColor()
         {
-            return new Color(toRGBA());
+            return new Color(ToRGBA());
         }
 
-        public static Vector4 toRGBA(float h, float s, float v, float a)
+        public static Vector4 ToRGBA(float h, float s, float v, float a)
         {
             float r, g, b;
             h *= 6;
             h = h % 6;
 
-            var i = (float)Math.Floor(h);
+            var i = (int)Math.Floor(h);
             var f = h - i;
             var p = v * (1 - s);
             var q = v * (1 - (s * f));
@@ -126,7 +121,12 @@ namespace Garden
                 b = q;
             }
 
-            return new Vector4(r, g, v, a);
+            return new Vector4(r, g, b, a);
+        }
+
+        public override string ToString()
+        {
+            return String.Format("[H: {0} S: {1} B: {2} A: {3}]", H, S, B, A);
         }
     }
 }
