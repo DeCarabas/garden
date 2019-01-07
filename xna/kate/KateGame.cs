@@ -167,34 +167,67 @@ namespace Garden
         }
     }
 
+    struct NodeDNA
+    {
+        public readonly float[] values;
+
+        public NodeDNA(float[] values) => this.values = values;
+
+        public float AngleSkew => this.values[0];
+        public float Bushiness => this.values[1];
+        public float Wiggle => this.values[2];
+        public float Variation => this.values[3];
+        public float Shrinkage => this.values[4];
+        public float HueStart => this.values[5];
+        public float HueDiff => this.values[6];
+        public float Saturation => this.values[7];
+        public float LeafCount => this.values[8];
+        public float LeafAspect => this.values[9];
+        public float LeafShape => this.values[10];
+        public float FlowerCount => this.values[11];
+        public float FlowerHue => this.values[12];
+        public float FlowerSaturation => this.values[13];
+        public float PetalAspect => this.values[14];
+
+        public static NodeDNA Create(Random random)
+        {
+            var values = new float[20];
+            for (int i = 0; i < values.Length; i++)
+            {
+                values[i] = random.NextFloat();
+            }
+            return new NodeDNA(values);
+        }
+
+        public void Print()
+        {
+            foreach (var prop in GetType().GetProperties())
+            {
+                const int BarLength = 30;
+
+                float val = (float)prop.GetValue(this);
+                int length = (int)(val * BarLength);
+                var bar =
+                    new String('=', length) +
+                    new String(' ', BarLength - length);
+                Console.WriteLine("{0,20}: |{1}| {2}", prop.Name, bar, val);
+            }
+            Console.WriteLine();
+        }
+    }
+
     // This code is based on the code originally written by Kate Compton
     // (@GalaxyKate), at http://www.galaxykate.com/apps/Prototypes/LTrees/
     class Node
     {
         public static Random random = new Random();
 
-        const int ANGLE_SKEW = 0;
-        const int BUSHINESS = 1;
-        const int WIGGLE = 2;
-        const int VARIATION = 3;
-        const int SHRINKAGE = 4;
-        const int HUE_START = 5;
-        const int HUE_DIFF = 6;
-        const int SATURATION = 7;
-        const int LEAF_COUNT = 8;
-        const int LEAF_ASPECT = 9;
-        const int LEAF_SHAPE = 10;
-        const int FLOWER_COUNT = 11;
-        const int FLOWER_HUE = 12;
-        const int FLOWER_SATURATION = 13;
-        const int PETAL_ASPECT = 14;
-
         static int NextID = 0;
 
         readonly List<Node> children = new List<Node>();
         readonly float radius;
         readonly int depth;
-        readonly float[] dna;
+        readonly NodeDNA dna;
         readonly float baseAngle;
         readonly float branchLength;
         readonly HSBColor idColor;
@@ -216,21 +249,21 @@ namespace Garden
                 this.dna = parent.dna;
 
                 // As a child, offset the child index
-                var skew = (float)Math.Pow(this.dna[ANGLE_SKEW] - .5f, 3);
-                var spread = (1.5f * this.dna[BUSHINESS]);
+                var skew = (float)Math.Pow(this.dna.AngleSkew - .5f, 3);
+                var spread = (1.5f * this.dna.Bushiness);
                 this.baseAngle =
                     parent.angle + spread * (childPct - .5f) + skew;
                 this.baseAngle +=
-                    this.dna[WIGGLE] * .1f * MathF.Sin(this.depth) *
+                    this.dna.Wiggle * .1f * MathF.Sin(this.depth) *
                     this.depth;
 
                 // Set the position relative to the parent
-                var mult = 15 - 12 * this.dna[BUSHINESS];
+                var mult = 15 - 12 * this.dna.Bushiness;
                 this.branchLength = .7f * mult * parent.radius;
 
                 this.branchLength *=
-                    (1 + 1 * this.dna[VARIATION] * (random.NextFloat() - .5f));
-                this.radius = parent.radius * (.6f + .3f * this.dna[SHRINKAGE]);
+                    (1 + 1 * this.dna.Variation * (random.NextFloat() - .5f));
+                this.radius = parent.radius * (.6f + .3f * this.dna.Shrinkage);
 
                 this.position = polarOffset(
                     parent.position, this.branchLength, this.baseAngle);
@@ -240,7 +273,7 @@ namespace Garden
             this.idColor = makeIDColor(this.dna, this.depth);
         }
 
-        public Node(float[] dna, Vector3 pos, float angle, float radius)
+        public Node(NodeDNA dna, Vector3 pos, float angle, float radius)
         {
             this.dna = dna;
             this.position = pos;
@@ -249,12 +282,12 @@ namespace Garden
             this.idColor = makeIDColor(this.dna, this.depth);
         }
 
-        static HSBColor makeIDColor(float[] dna, float depth)
+        static HSBColor makeIDColor(NodeDNA dna, float depth)
         {
-            float h = (3 + dna[HUE_START] + .1f * dna[HUE_DIFF] * depth);
+            float h = (3 + dna.HueStart + .1f * dna.HueDiff * depth);
             float s =
-                (.7f + .3f * dna[SATURATION] * MathF.Sin(depth)) -
-                (dna[SATURATION] * depth * .08f);
+                (.7f + .3f * dna.Saturation * MathF.Sin(depth)) -
+                (dna.Saturation * depth * .08f);
             float b = .3f + .1f * depth;
             return new HSBColor(h % 1f, MathF.Unit(s), MathF.Unit(b));
         }
@@ -324,7 +357,7 @@ namespace Garden
                     new Vector3(length, -child.radius, 0)
                 );
 
-                var leafCount = (float)Math.Floor(this.dna[LEAF_COUNT] * 5);
+                var leafCount = (float)Math.Floor(this.dna.LeafCount * 5);
                 for (var j = 0; j < (int)leafCount; j++)
                 {
                     HSBColor leafColor = this.idColor.Alter(
@@ -335,10 +368,10 @@ namespace Garden
                         Matrix.CreateTranslation(length / leafCount, 0, 0) *
                         world;
 
-                    var r0 = 15 * this.radius * (.3f + this.dna[LEAF_ASPECT]);
-                    var r1 = r0 * (.7f * this.dna[LEAF_SHAPE] + .12f);
+                    var r0 = 15 * this.radius * (.3f + this.dna.LeafAspect);
+                    var r1 = r0 * (.7f * this.dna.LeafShape + .12f);
                     var theta = MathF.Sin(j * 3 + this.depth);
-                    var dTheta = 1 / (.8f + 2 * this.dna[LEAF_ASPECT]);
+                    var dTheta = 1 / (.8f + 2 * this.dna.LeafAspect);
                     var theta0 = theta - dTheta;
                     var theta1 = theta + dTheta;
 
@@ -371,17 +404,17 @@ namespace Garden
                     Matrix.CreateRotationZ(this.angle) *
                     Matrix.CreateTranslation(this.position);
 
-                var flowerCount = (float)Math.Round(8 * this.dna[FLOWER_COUNT]);
+                var flowerCount = (float)Math.Round(8 * this.dna.FlowerCount);
                 var petalSize = 5 * this.radius;
 
-                var aspect = .1f + .9f * this.dna[PETAL_ASPECT];
+                var aspect = .1f + .9f * this.dna.PetalAspect;
                 var petalH = petalSize * aspect;
                 var petalW = petalSize * (1 - aspect);
                 for (var i = 0; i < flowerCount; i++)
                 {
                     var flowerColor = new HSBColor(
-                        (this.dna[FLOWER_HUE] * 1.2f + .9f) % 1f,
-                        this.dna[FLOWER_SATURATION],
+                        (this.dna.FlowerHue * 1.2f + .9f) % 1f,
+                        this.dna.FlowerSaturation,
                         MathF.Unit(.9f + .3f * MathF.Sin(i * 3)),
                         .7f);
 
@@ -459,11 +492,8 @@ namespace Garden
             }
             if (node == null)
             {
-                float[] dna = new float[20];
-                for (int i = 0; i < dna.Length; i++)
-                {
-                    dna[i] = (float)Node.random.NextDouble();
-                }
+                var dna = NodeDNA.Create(Node.random);
+                dna.Print();
                 node = new Node(
                     dna,
                     Vector3.Zero,
