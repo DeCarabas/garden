@@ -188,6 +188,7 @@ namespace Garden
         public float FlowerHue => this.values[12];
         public float FlowerSaturation => this.values[13];
         public float PetalAspect => this.values[14];
+        public float BaseRadius => this.values[15];
 
         public static NodeDNA Create(Random random)
         {
@@ -250,7 +251,7 @@ namespace Garden
 
                 // As a child, offset the child index
                 var skew = (float)Math.Pow(this.dna.AngleSkew - .5f, 3);
-                var spread = (1.5f * this.dna.Bushiness);
+                var spread = (2f * this.dna.Bushiness);
                 this.baseAngle =
                     parent.angle + spread * (childPct - .5f) + skew;
                 this.baseAngle +=
@@ -273,12 +274,12 @@ namespace Garden
             this.idColor = makeIDColor(this.dna, this.depth);
         }
 
-        public Node(NodeDNA dna, Vector3 pos, float angle, float radius)
+        public Node(NodeDNA dna, Vector3 pos)
         {
             this.dna = dna;
             this.position = pos;
-            this.baseAngle = this.angle = angle;
-            this.radius = radius;
+            this.baseAngle = this.angle = -MathHelper.PiOver2;
+            this.radius = (10f * dna.BaseRadius) + random.NextFloat() + 4f;
             this.idColor = makeIDColor(this.dna, this.depth);
         }
 
@@ -299,7 +300,7 @@ namespace Garden
                 int branches = 1;
                 if (depth % 3 == 0)
                 {
-                    branches = 2;
+                    branches = 1 + (int)(Math.Round(3 * this.dna.Bushiness));
                 }
                 for (float i = 0; i < branches; i++)
                 {
@@ -454,6 +455,8 @@ namespace Garden
 
         Node node;
 
+        KeyboardState lastKeyboard;
+
         public KateGame()
         {
             graphics = new GraphicsDeviceManager(this);
@@ -482,23 +485,23 @@ namespace Garden
 
         protected override void Update(GameTime gameTime)
         {
-            if (Keyboard.GetState().IsKeyDown(Keys.Enter))
+            KeyboardState keyboard = Keyboard.GetState();
+            if (lastKeyboard.IsKeyDown(Keys.Enter) &&
+                keyboard.IsKeyUp(Keys.Enter))
             {
                 node = null;
             }
-            if (Keyboard.GetState().IsKeyDown(Keys.Escape))
+            if (keyboard.IsKeyDown(Keys.Escape))
             {
                 Exit();
             }
+            lastKeyboard = keyboard;
+
             if (node == null)
             {
                 var dna = NodeDNA.Create(Node.random);
                 dna.Print();
-                node = new Node(
-                    dna,
-                    Vector3.Zero,
-                    -MathHelper.PiOver2,
-                    5f + (float)Node.random.NextDouble() + 4f);
+                node = new Node(dna, Vector3.Zero);
                 for (int i = 0; i < 10; i++)
                 {
                     node.Iterate();
