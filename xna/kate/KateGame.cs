@@ -424,6 +424,8 @@ namespace Garden
         public KateGame()
         {
             graphics = new GraphicsDeviceManager(this);
+            graphics.PreferMultiSampling = true;
+
             Content.RootDirectory = "content";
         }
 
@@ -485,7 +487,9 @@ namespace Garden
             Matrix view = Matrix.CreateLookAt(
                 new Vector3(0, 0, -10),
                 new Vector3(0, 0, 0),
-                Vector3.UnitY) * Matrix.CreateScale(0.75f);
+                Vector3.UnitY) *
+                Matrix.CreateScale(0.75f) *
+                Matrix.CreateTranslation(0, -200, 0);
             Matrix projection = Matrix.CreateOrthographic(
                 GraphicsDevice.Viewport.Width,
                 GraphicsDevice.Viewport.Height,
