@@ -15,13 +15,16 @@ namespace Garden
     static class MathF
     {
         public static float Sin(float angle) => (float)Math.Sin(angle);
+
         public static float Cos(float angle) => (float)Math.Cos(angle);
+
         public static float Unit(float value) => MathHelper.Clamp(value, 0, 1);
     }
 
     class DrawingContext
     {
-        static readonly VertexPositionColorTexture[] unitSquare = new[] {
+        static readonly VertexPositionColorTexture[] unitSquare = new[]
+            {
                 new VertexPositionColorTexture(
                     new Vector3(-0.5f, -0.5f, 0),
                     Color.White,
@@ -52,6 +55,7 @@ namespace Garden
                     Color.White,
                     new Vector2(-1, 1)
                 ),
+
             };
 
         public DrawingContext(GraphicsDevice device, Effect shapesEffect)
@@ -95,21 +99,30 @@ namespace Garden
                 temp[i].Color = rgba;
             }
 
-            Matrix world =
-                Matrix.CreateScale(radius * 2) *
+            Matrix world = Matrix.CreateScale(radius * 2) *
                 Matrix.CreateTranslation(position);
             this.worldMatrix.SetValue(world);
             this.shapesEffect.CurrentTechnique = this.circleTechnique;
-            foreach (EffectPass pass in this.shapesEffect.CurrentTechnique.Passes)
+            foreach (
+                EffectPass pass in
+                this.shapesEffect.CurrentTechnique.Passes
+            )
             {
                 pass.Apply();
                 this.device.DrawUserPrimitives(
-                    PrimitiveType.TriangleList, temp, 0, 2);
+                    PrimitiveType.TriangleList,
+                    temp,
+                    0,
+                    2
+                );
             }
         }
 
         public void DrawElipse(
-            HSBColor idColor, Vector3 position, float radiusW, float radiusH)
+            HSBColor idColor,
+            Vector3 position,
+            float radiusW,
+            float radiusH)
         {
             // TODO: Batch/cache.
             var rgba = idColor.ToColor();
@@ -119,16 +132,22 @@ namespace Garden
                 temp[i].Color = rgba;
             }
 
-            Matrix world =
-                Matrix.CreateScale(radiusW * 2, radiusH * 2, 1) *
+            Matrix world = Matrix.CreateScale(radiusW * 2, radiusH * 2, 1) *
                 Matrix.CreateTranslation(position);
             this.worldMatrix.SetValue(world);
             this.shapesEffect.CurrentTechnique = this.circleTechnique;
-            foreach (EffectPass pass in this.shapesEffect.CurrentTechnique.Passes)
+            foreach (
+                EffectPass pass in
+                this.shapesEffect.CurrentTechnique.Passes
+            )
             {
                 pass.Apply();
                 this.device.DrawUserPrimitives(
-                    PrimitiveType.TriangleList, temp, 0, 2);
+                    PrimitiveType.TriangleList,
+                    temp,
+                    0,
+                    2
+                );
             }
         }
 
@@ -158,11 +177,18 @@ namespace Garden
 
             this.worldMatrix.SetValue(world);
             this.shapesEffect.CurrentTechnique = this.squareTechnique;
-            foreach (EffectPass pass in this.shapesEffect.CurrentTechnique.Passes)
+            foreach (
+                EffectPass pass in
+                this.shapesEffect.CurrentTechnique.Passes
+            )
             {
                 pass.Apply();
                 this.device.DrawUserPrimitives(
-                    PrimitiveType.TriangleList, temp, 0, 2);
+                    PrimitiveType.TriangleList,
+                    temp,
+                    0,
+                    2
+                );
             }
         }
     }
@@ -174,20 +200,35 @@ namespace Garden
         public NodeDNA(float[] values) => this.values = values;
 
         public float AngleSkew => this.values[0];
+
         public float Bushiness => this.values[1];
+
         public float Wiggle => this.values[2];
+
         public float Variation => this.values[3];
+
         public float Shrinkage => this.values[4];
+
         public float HueStart => this.values[5];
+
         public float HueDiff => this.values[6];
+
         public float Saturation => this.values[7];
+
         public float LeafCount => this.values[8];
+
         public float LeafAspect => this.values[9];
+
         public float LeafShape => this.values[10];
+
         public float FlowerCount => this.values[11];
+
         public float FlowerHue => this.values[12];
+
         public float FlowerSaturation => this.values[13];
+
         public float PetalAspect => this.values[14];
+
         public float BaseRadius => this.values[15];
 
         public static NodeDNA Create(Random random)
@@ -197,6 +238,7 @@ namespace Garden
             {
                 values[i] = random.NextFloat();
             }
+
             return new NodeDNA(values);
         }
 
@@ -208,11 +250,11 @@ namespace Garden
 
                 float val = (float)prop.GetValue(this);
                 int length = (int)(val * BarLength);
-                var bar =
-                    new String('=', length) +
+                var bar = new String('=', length) +
                     new String(' ', BarLength - length);
                 Console.WriteLine("{0,20}: |{1}| {2}", prop.Name, bar, val);
             }
+
             Console.WriteLine();
         }
     }
@@ -222,9 +264,7 @@ namespace Garden
     class Node
     {
         public static Random random = new Random();
-
         static int NextID = 0;
-
         readonly List<Node> children = new List<Node>();
         readonly float radius;
         readonly int depth;
@@ -234,8 +274,6 @@ namespace Garden
         readonly HSBColor idColor;
         readonly Node parent;
         readonly int id;
-
-
         float angle;
         Vector3 position;
 
@@ -252,11 +290,9 @@ namespace Garden
                 // As a child, offset the child index
                 var skew = (float)Math.Pow(this.dna.AngleSkew - .5f, 3);
                 var spread = (2f * this.dna.Bushiness);
-                this.baseAngle =
-                    parent.angle + spread * (childPct - .5f) + skew;
+                this.baseAngle = parent.angle + spread * (childPct - .5f) + skew;
                 this.baseAngle +=
-                    this.dna.Wiggle * .1f * MathF.Sin(this.depth) *
-                    this.depth;
+                    this.dna.Wiggle * .1f * MathF.Sin(this.depth) * this.depth;
 
                 // Set the position relative to the parent
                 var mult = 15 - 12 * this.dna.Bushiness;
@@ -266,8 +302,12 @@ namespace Garden
                     (1 + 1 * this.dna.Variation * (random.NextFloat() - .5f));
                 this.radius = parent.radius * (.6f + .3f * this.dna.Shrinkage);
 
-                this.position = polarOffset(
-                    parent.position, this.branchLength, this.baseAngle);
+                this.position =
+                    polarOffset(
+                        parent.position,
+                        this.branchLength,
+                        this.baseAngle
+                    );
             }
 
             this.angle = this.baseAngle;
@@ -286,8 +326,7 @@ namespace Garden
         static HSBColor makeIDColor(NodeDNA dna, float depth)
         {
             float h = (3 + dna.HueStart + .1f * dna.HueDiff * depth);
-            float s =
-                (.7f + .3f * dna.Saturation * MathF.Sin(depth)) -
+            float s = (.7f + .3f * dna.Saturation * MathF.Sin(depth)) -
                 (dna.Saturation * depth * .08f);
             float b = .3f + .1f * depth;
             return new HSBColor(h % 1f, MathF.Unit(s), MathF.Unit(b));
@@ -302,6 +341,7 @@ namespace Garden
                 {
                     branches = 1 + (int)(Math.Round(3 * this.dna.Bushiness));
                 }
+
                 for (float i = 0; i < branches; i++)
                 {
                     float pct = (i + 0.5f) / branches;
@@ -327,8 +367,12 @@ namespace Garden
                 angleOffset += 0.2f * MathF.Sin(this.id);
 
                 this.angle = this.baseAngle + angleOffset;
-                this.position = polarOffset(
-                    this.parent.position, this.branchLength, this.angle);
+                this.position =
+                    polarOffset(
+                        this.parent.position,
+                        this.branchLength,
+                        this.angle
+                    );
             }
 
             foreach (Node child in this.children)
@@ -345,8 +389,7 @@ namespace Garden
                 float length = child.branchLength;
                 float angle = (float)Math.Atan2(edge.Y, edge.X);
 
-                Matrix world =
-                    Matrix.CreateRotationZ(angle) *
+                Matrix world = Matrix.CreateRotationZ(angle) *
                     Matrix.CreateTranslation(this.position);
 
                 context.DrawSquare(
@@ -362,8 +405,9 @@ namespace Garden
                 for (var j = 0; j < (int)leafCount; j++)
                 {
                     HSBColor leafColor = this.idColor.Alter(
-                        shade: 0.3f * MathF.Sin(j + this.depth),
-                        fade: -0.3f + 0.2f * MathF.Sin(j + this.depth));
+                            shade: 0.3f * MathF.Sin(j + this.depth),
+                            fade: -0.3f + 0.2f * MathF.Sin(j + this.depth)
+                        );
 
                     world =
                         Matrix.CreateTranslation(length / leafCount, 0, 0) *
@@ -383,17 +427,20 @@ namespace Garden
                         new Vector3(
                             r1 * MathF.Cos(theta0),
                             r1 * MathF.Sin(theta),
-                            0),
+                            0
+                        ),
                         new Vector3(
                             r0 * MathF.Cos(theta),
                             r0 * MathF.Sin(theta),
-                            0),
+                            0
+                        ),
                         new Vector3(
                             r1 * MathF.Cos(theta1),
                             r1 * MathF.Sin(theta1),
-                            0));
+                            0
+                        )
+                    );
                 }
-
 
                 child.Draw(context);
             }
@@ -401,8 +448,7 @@ namespace Garden
             context.DrawCircle(this.idColor, this.position, this.radius);
             if (this.children.Count == 0)
             {
-                Matrix world =
-                    Matrix.CreateRotationZ(this.angle) *
+                Matrix world = Matrix.CreateRotationZ(this.angle) *
                     Matrix.CreateTranslation(this.position);
 
                 var flowerCount = (float)Math.Round(8 * this.dna.FlowerCount);
@@ -414,22 +460,26 @@ namespace Garden
                 for (var i = 0; i < flowerCount; i++)
                 {
                     var flowerColor = new HSBColor(
-                        (this.dna.FlowerHue * 1.2f + .9f) % 1f,
-                        this.dna.FlowerSaturation,
-                        MathF.Unit(.9f + .3f * MathF.Sin(i * 3)),
-                        .7f);
+                            (this.dna.FlowerHue * 1.2f + .9f) % 1f,
+                            this.dna.FlowerSaturation,
+                            MathF.Unit(.9f + .3f * MathF.Sin(i * 3)),
+                            .7f
+                        );
 
                     world =
                         Matrix.CreateRotationZ(MathHelper.TwoPi / flowerCount) *
                         world;
 
                     var flowerCenter = Vector3.Transform(
-                        new Vector3(petalH * 1.5f, 0, 0), world);
+                            new Vector3(petalH * 1.5f, 0, 0),
+                            world
+                        );
                     context.DrawElipse(
                         flowerColor,
                         flowerCenter,
                         petalH,
-                        petalW);
+                        petalW
+                    );
                 }
             }
         }
@@ -447,14 +497,11 @@ namespace Garden
     class KateGame : Game
     {
         GraphicsDeviceManager graphics;
-
         SpriteFont font;
         BasicEffect effect;
         Effect shapesEffect;
         DrawingContext drawingContext;
-
         Node node;
-
         KeyboardState lastKeyboard;
 
         public KateGame()
@@ -486,15 +533,19 @@ namespace Garden
         protected override void Update(GameTime gameTime)
         {
             KeyboardState keyboard = Keyboard.GetState();
-            if (lastKeyboard.IsKeyDown(Keys.Enter) &&
-                keyboard.IsKeyUp(Keys.Enter))
+            if (
+                lastKeyboard.IsKeyDown(Keys.Enter) &&
+                keyboard.IsKeyUp(Keys.Enter)
+            )
             {
                 node = null;
             }
+
             if (keyboard.IsKeyDown(Keys.Escape))
             {
                 Exit();
             }
+
             lastKeyboard = keyboard;
 
             if (node == null)
@@ -507,6 +558,7 @@ namespace Garden
                     node.Iterate();
                 }
             }
+
             node.Update(gameTime);
         }
 
@@ -518,16 +570,17 @@ namespace Garden
             GraphicsDevice.BlendState = BlendState.AlphaBlend;
 
             Matrix view = Matrix.CreateLookAt(
-                new Vector3(0, 0, -10),
-                new Vector3(0, 0, 0),
-                Vector3.UnitY) *
-                Matrix.CreateScale(0.75f) *
+                    new Vector3(0, 0, -10),
+                    new Vector3(0, 0, 0),
+                    Vector3.UnitY
+                ) * Matrix.CreateScale(0.75f) *
                 Matrix.CreateTranslation(0, -200, 0);
             Matrix projection = Matrix.CreateOrthographic(
-                GraphicsDevice.Viewport.Width,
-                GraphicsDevice.Viewport.Height,
-                0.0f,
-                100.0f);
+                    GraphicsDevice.Viewport.Width,
+                    GraphicsDevice.Viewport.Height,
+                    0.0f,
+                    100.0f
+                );
 
             this.drawingContext.View = view;
             this.drawingContext.Projection = projection;
