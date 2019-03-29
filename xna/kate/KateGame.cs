@@ -193,54 +193,41 @@ namespace Garden
         }
     }
 
-    struct NodeDNA
+    class NodeDNA
     {
-        public readonly float[] values;
+        public static Random random = new Random();
 
-        public NodeDNA(float[] values) => this.values = values;
+        public float AngleSkew { get; } = random.NextFloat();
 
-        public float AngleSkew => this.values[0];
+        public float Bushiness { get; } = random.NextFloat();
 
-        public float Bushiness => this.values[1];
+        public float Wiggle { get; } = random.NextFloat();
 
-        public float Wiggle => this.values[2];
+        public float Variation { get; } = random.NextFloat();
 
-        public float Variation => this.values[3];
+        public float Shrinkage { get; } = random.NextFloat();
 
-        public float Shrinkage => this.values[4];
+        public float HueStart { get; } = random.NextFloat();
 
-        public float HueStart => this.values[5];
+        public float HueDiff { get; } = random.NextFloat();
 
-        public float HueDiff => this.values[6];
+        public float Saturation { get; } = random.NextFloat();
 
-        public float Saturation => this.values[7];
+        public float LeafCount { get; } = random.NextFloat();
 
-        public float LeafCount => this.values[8];
+        public float LeafAspect { get; } = random.NextFloat();
 
-        public float LeafAspect => this.values[9];
+        public float LeafShape { get; } = random.NextFloat();
 
-        public float LeafShape => this.values[10];
+        public float FlowerCount { get; } = random.NextFloat();
 
-        public float FlowerCount => this.values[11];
+        public float FlowerHue { get; } = random.NextFloat();
 
-        public float FlowerHue => this.values[12];
+        public float FlowerSaturation { get; } = random.NextFloat();
 
-        public float FlowerSaturation => this.values[13];
+        public float PetalAspect { get; } = random.NextFloat();
 
-        public float PetalAspect => this.values[14];
-
-        public float BaseRadius => this.values[15];
-
-        public static NodeDNA Create(Random random)
-        {
-            var values = new float[20];
-            for (int i = 0; i < values.Length; i++)
-            {
-                values[i] = random.NextFloat();
-            }
-
-            return new NodeDNA(values);
-        }
+        public float BaseRadius { get; } = random.NextFloat();
 
         public void Print()
         {
@@ -257,13 +244,14 @@ namespace Garden
 
             Console.WriteLine();
         }
+
+        public static float NextFloat() => random.NextFloat();
     }
 
     // This code is based on the code originally written by Kate Compton
     // (@GalaxyKate), at http://www.galaxykate.com/apps/Prototypes/LTrees/
     class Node
     {
-        public static Random random = new Random();
         static int NextID = 0;
         readonly List<Node> children = new List<Node>();
         readonly float radius;
@@ -299,7 +287,7 @@ namespace Garden
                 this.branchLength = .7f * mult * parent.radius;
 
                 this.branchLength *=
-                    (1 + 1 * this.dna.Variation * (random.NextFloat() - .5f));
+                    (1 + 1 * this.dna.Variation * (NodeDNA.NextFloat() - .5f));
                 this.radius = parent.radius * (.6f + .3f * this.dna.Shrinkage);
 
                 this.position =
@@ -319,7 +307,7 @@ namespace Garden
             this.dna = dna;
             this.position = pos;
             this.baseAngle = this.angle = -MathHelper.PiOver2;
-            this.radius = (10f * dna.BaseRadius) + random.NextFloat() + 4f;
+            this.radius = (10f * dna.BaseRadius) + NodeDNA.NextFloat() + 4f;
             this.idColor = makeIDColor(this.dna, this.depth);
         }
 
@@ -550,7 +538,7 @@ namespace Garden
 
             if (node == null)
             {
-                var dna = NodeDNA.Create(Node.random);
+                var dna = new NodeDNA();
                 dna.Print();
                 node = new Node(dna, Vector3.Zero);
                 for (int i = 0; i < 10; i++)
