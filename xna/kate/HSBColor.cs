@@ -1,4 +1,3 @@
-
 using System;
 using Microsoft.Xna.Framework;
 
@@ -11,8 +10,7 @@ namespace Garden
         public float B;
         public float A;
 
-        public HSBColor(float h, float s, float b) : this(h, s, b, 1)
-        { }
+        public HSBColor(float h, float s, float b) : this(h, s, b, 1) { }
 
         public HSBColor(float h, float s, float b, float a)
         {
@@ -59,7 +57,6 @@ namespace Garden
 
             return new HSBColor(h, s, b, a);
         }
-
 
         public Vector4 ToRGBA()
         {
