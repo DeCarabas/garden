@@ -293,10 +293,11 @@ namespace Garden
 
     class TrunkNode
     {
-        const float MinTrunkWidth = 10.0f;
-        const float MaxTrunkWidth = 20.0f;
-        const float MinTrunkLengthScale = 5.0f;
-        const float MaxTrunkLengthScale = 20.0f;
+        const float MinTrunkWidth = 5.0f;
+        const float MaxTrunkWidth = 5.0f;
+        const float MinTrunkLengthScale = 10.0f;
+        const float MaxTrunkLengthScale = 10.0f;
+        const int ChildCount = 3;
 
         readonly NodeDNA dna;
         readonly Vector3 origin;
@@ -311,7 +312,7 @@ namespace Garden
             : this(
                 dna: dna,
                 origin: origin,
-                depth: 0,
+                depth: 1,
                 angle: 0,
                 width: MathHelper.Lerp(
                     MinTrunkWidth,
@@ -330,12 +331,11 @@ namespace Garden
         {
             this.dna = dna;
             this.origin = origin;
-            this.color = makeIDColor(dna, 0);
+            this.color = HSBColors.Brown; //makeIDColor(dna, 0);
             this.angle = angle;
             this.depth = depth;
 
             this.width = width;
-
             this.length =
                 this.width *
                 MathHelper.Lerp(
@@ -350,7 +350,7 @@ namespace Garden
             if (children == null)
             {
                 children = new List<TrunkNode>();
-                children.Add(newTrunk(0));
+                children.Add(newTrunk(1));
             }
             else
             {
@@ -369,26 +369,11 @@ namespace Garden
                     this.angle - MathHelper.PiOver2
                 );
 
-            float newAngle = this.angle +
-                MathHelper.Lerp(
-                    -MathHelper.Pi / 8.0f,
-                    MathHelper.Pi / 8.0f,
-                    MathF.Noise(dna.AngleSkew * (7 + this.depth))
-                );
+            const float angleRange = MathHelper.PiOver4;
+            float pct = MathF.Noise(dna.AngleSkew * (7 + this.depth * index));
+            float angleOffset = MathHelper.Lerp(-angleRange, angleRange, pct);
+            float newAngle = this.angle + angleOffset;
 
-            // //float baseAngle =
-            // // 360 / Phi
-            // float newAngle = MathF.Wrap(
-            //         0f,
-            //         MathHelper.PiOver2,
-            //         ((depth + index) * MathF.Phi * MathHelper.Pi / 4.0f)
-            //     ) - MathHelper.PiOver4;
-            // float newWidth = this.width *
-            //     MathHelper.Lerp(
-            //         0.8f,
-            //         0.95f,
-            //         MathF.Noise(this.width * dna.Shrinkage + index)
-            //     );
             float newWidth = this.width;
 
             return new TrunkNode(
@@ -449,13 +434,15 @@ namespace Garden
     class KateGame : Game
     {
         const int IterationCount = 2;
+        const int NodeGridWidth = 3;
+        const int NodeGridHeight = 3;
 
         GraphicsDeviceManager graphics;
         SpriteFont font;
         BasicEffect effect;
         Effect shapesEffect;
         DrawingContext drawingContext;
-        TrunkNode node;
+        List<TrunkNode> nodes;
         KeyboardState lastKeyboard;
 
         public KateGame()
@@ -492,7 +479,7 @@ namespace Garden
                 keyboard.IsKeyUp(Keys.Enter)
             )
             {
-                node = null;
+                nodes = null;
             }
 
             if (keyboard.IsKeyDown(Keys.Escape))
@@ -502,18 +489,42 @@ namespace Garden
 
             lastKeyboard = keyboard;
 
-            if (node == null)
+            if (nodes == null)
             {
-                var dna = new NodeDNA();
-                dna.Print();
-                node = new TrunkNode(dna, Vector3.Zero);
-                for (int i = 0; i < IterationCount; i++)
+                nodes = new List<TrunkNode>();
+                float halfWidth = (float)(GraphicsDevice.Viewport.Width) / 2.0f;
+                float halfHeight = (float)(GraphicsDevice.Viewport.Height) /
+                    2.0f;
+                float spaceY = (float)(GraphicsDevice.Viewport.Height) /
+                    (float)NodeGridHeight;
+                float spaceX = (float)(GraphicsDevice.Viewport.Width) /
+                    (float)NodeGridWidth;
+                for (int y = 0; y < NodeGridHeight; y++)
                 {
-                    node.Iterate();
+                    for (int x = 0; x < NodeGridWidth; x++)
+                    {
+                        Vector3 origin = new Vector3(
+                                (x * spaceX) + (spaceX / 2.0f) - halfWidth,
+                                (y * spaceY) + (spaceY / 2.0f) - halfHeight,
+                                0.0f
+                            );
+
+                        var dna = new NodeDNA();
+                        var node = new TrunkNode(dna, origin);
+                        for (int i = 0; i < IterationCount; i++)
+                        {
+                            node.Iterate();
+                        }
+
+                        nodes.Add(node);
+                    }
                 }
             }
 
-            node.Update(gameTime);
+            foreach (var node in this.nodes)
+            {
+                node.Update(gameTime);
+            }
         }
 
         protected override void Draw(GameTime gameTime)
@@ -528,7 +539,7 @@ namespace Garden
                     new Vector3(0, 0, 0),
                     Vector3.UnitY
                 ) * Matrix.CreateScale(0.75f) *
-                Matrix.CreateTranslation(0, -200, 0);
+                Matrix.CreateTranslation(0, 0, 0);
             Matrix projection = Matrix.CreateOrthographic(
                     GraphicsDevice.Viewport.Width,
                     GraphicsDevice.Viewport.Height,
@@ -539,7 +550,10 @@ namespace Garden
             this.drawingContext.View = view;
             this.drawingContext.Projection = projection;
 
-            this.node.Draw(this.drawingContext);
+            foreach (var node in nodes)
+            {
+                node.Draw(this.drawingContext);
+            }
         }
     }
 }
